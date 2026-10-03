@@ -2625,6 +2625,8 @@ function openSettings() {
 
       h('p', { class: 'muted small-note', text: 'قوائم المحافظات والمدن بلغة كل بلد: العربية للدول العربية، والتركية لتركيا، والألمانية لألمانيا، وهكذا. وما لا يتوفر بلغته الأصلية فبالإنجليزية، من قاعدة بيانات مفتوحة «countries-states-cities-database» بترخيص ODbL.' }),
 
+      installSection(),
+
       h('div', { class: 'section-title', text: 'النسخ الاحتياطي' }),
       h('p', { class: 'muted', text: 'نزّل نسخة كاملة من الشجرة متى شئت (الأشخاص والزيجات، دون الصور). ملف JSON يعيده هذا البرنامج بدقة، وملف GEDCOM تفهمه برامج الأنساب الأخرى.' }),
       h(
@@ -4705,6 +4707,50 @@ async function init() {
     data: { session },
   } = await sb.auth.getSession();
   if (!session) showFront();
+}
+
+// ---------- the app on the phone (manifest.webmanifest, sw.js) ----------
+
+let installOffer = null; // the browser's own "install" prompt, kept until the person asks for it
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installOffer = e;
+});
+window.addEventListener('appinstalled', () => (installOffer = null));
+
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+
+/** The settings block that helps to put the site on the phone like an app. */
+function installSection() {
+  const standalone = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const offerBtn = installOffer
+    ? h('button', {
+        class: 'btn small primary',
+        type: 'button',
+        text: 'تثبيت التطبيق الآن',
+        onclick: async () => {
+          const offer = installOffer;
+          installOffer = null;
+          offer.prompt();
+          await offer.userChoice.catch(() => {});
+        },
+      })
+    : null;
+  return [
+    h('div', { class: 'section-title', text: 'تطبيق على الجوال' }),
+    standalone
+      ? h('p', { class: 'muted', text: 'أنت تستخدم التطبيق الآن. أي تحديث للموقع يصلك تلقائيًا عند فتحه.' })
+      : h(
+          'div',
+          { class: 'stack' },
+          h('p', { class: 'muted', text: 'ضع الموقع على شاشة جوالك كتطبيق: أيقونة وملء الشاشة، ويتحدّث وحده دون تنزيل شيء.' }),
+          offerBtn,
+          h('p', { class: 'muted small-note', text: ios ? 'على آيفون (متصفح Safari): اضغط زر المشاركة ثم «إضافة إلى الشاشة الرئيسية».' : 'على أندرويد (متصفح Chrome): اضغط القائمة ⋮ ثم «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».' }),
+        ),
+  ];
 }
 
 init();
