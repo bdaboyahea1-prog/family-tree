@@ -155,6 +155,7 @@ const ICONS = {
   lock: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   printer: '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
   grid: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>',
+  phone: '<rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>',
   menu: '<line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>',
   share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>',
   refresh: '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
@@ -1060,6 +1061,7 @@ async function showLanding() {
         h('h1', { text: `شجرة عائلة ${FAMILY}` }),
         h('p', { class: 'lead', text: `هذه صفحة شجرة عائلة ${FAMILY}. إن كنت من العائلة فيمكنك طلب الانضمام إلى الشجرة لتطّلع على أفرادها وتضيف فرعك وبياناته، من أي مكان في العالم.` }),
       ),
+      installPill(),
       mine &&
         h(
           'section',
@@ -3101,14 +3103,19 @@ function openMore() {
     'المزيد',
     h(
       'div',
-      { class: 'more-list' },
-      hasBackend() && item('history', 'السجل', openHistory),
-      item('printer', 'طباعة الشجرة', printTree),
-      item('grid', 'تصدير إلى Excel', exportTreeXlsx),
-      item(dark ? 'moon' : 'sun', dark ? 'الألوان داكنة: اجعلها فاتحة' : 'الألوان فاتحة: اجعلها داكنة', () => setTheme(dark ? 'light' : 'dark')),
-      item('settings', 'الإعدادات', openSettings),
-      item('info', 'عن المصمم', openAbout),
-      OFFLINE ? item('refresh', 'إعادة الاتصال', leaveOffline) : item('logout', 'خروج', signOut),
+      {},
+      h(
+        'div',
+        { class: 'more-list' },
+        hasBackend() && item('history', 'السجل', openHistory),
+        item('printer', 'طباعة الشجرة', printTree),
+        item('grid', 'تصدير إلى Excel', exportTreeXlsx),
+        item(dark ? 'moon' : 'sun', dark ? 'الألوان داكنة: اجعلها فاتحة' : 'الألوان فاتحة: اجعلها داكنة', () => setTheme(dark ? 'light' : 'dark')),
+        item('settings', 'الإعدادات', openSettings),
+        item('info', 'عن المصمم', openAbout),
+        OFFLINE ? item('refresh', 'إعادة الاتصال', leaveOffline) : item('logout', 'خروج', signOut),
+      ),
+      installPill({ close: () => dlg.close() }),
     ),
   );
 }
@@ -5319,11 +5326,67 @@ async function init() {
 // ---------- the app on the phone (manifest.webmanifest, sw.js) ----------
 
 let installOffer = null; // the browser's own "install" prompt, kept until the person asks for it
+let installedNow = false; // installed during this visit
+const isStandalone = () => !!window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
+/** Is there something to offer? Not inside the installed app, nor right after installing; on a phone always (the steps), on a computer when the browser offers it. */
+const installable = () => !isStandalone() && !installedNow && (TOUCH || !!installOffer);
+
+const installPills = new Set();
+const pillHidden = (b) => isStandalone() || installedNow || (!b.dataset.always && !installable());
+function syncInstallPills() {
+  if (installPills.size > 20) for (const b of installPills) if (!b.isConnected) installPills.delete(b);
+  for (const b of installPills) b.hidden = pillHidden(b);
+}
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   installOffer = e;
+  syncInstallPills();
 });
-window.addEventListener('appinstalled', () => (installOffer = null));
+window.addEventListener('appinstalled', () => {
+  installOffer = null;
+  installedNow = true;
+  syncInstallPills();
+});
+
+/** The button «تثبيت التطبيق على شاشة الجوال» (public page, the menu «المزيد», the settings). `always`: shown on a computer too. */
+function installPill({ always = false, close = null } = {}) {
+  const b = h('button', { class: 'install-pill', type: 'button', onclick: () => (close?.(), installApp()) }, icon('phone'), h('span', { text: 'تثبيت التطبيق على شاشة الجوال' }));
+  if (always) b.dataset.always = '1';
+  b.hidden = pillHidden(b);
+  installPills.add(b);
+  return b;
+}
+
+/** The browser's own install window when it offers one; otherwise the steps for this phone. */
+async function installApp() {
+  if (!installOffer) return openInstallHelp();
+  const offer = installOffer;
+  installOffer = null; // the browser gives the offer once
+  syncInstallPills();
+  offer.prompt();
+  await offer.userChoice.catch(() => {});
+}
+
+function openInstallHelp() {
+  const ua = navigator.userAgent;
+  const ios = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const android = /android/i.test(ua);
+  const inApp = /FBAN|FBAV|Instagram|WhatsApp|Telegram|Snapchat|MicroMessenger|Twitter|Line\//i.test(ua); // a browser inside another app cannot install
+  const block = (title, steps) => h('div', { class: 'stack' }, h('strong', { text: title }), h('ol', {}, steps.map((t) => h('li', { text: t }))));
+  const iosSteps = block('آيفون وآيباد (متصفح Safari)', ['افتح هذه الصفحة في متصفح Safari (لا يعمل التثبيت من داخل واتساب أو فيسبوك).', 'اضغط زر المشاركة (المربع الذي يخرج منه سهم للأعلى).', 'اختر «إضافة إلى الشاشة الرئيسية» ثم «إضافة».']);
+  const androidSteps = block('أندرويد', ['في متصفح Chrome: اضغط القائمة ⋮ ثم «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».', 'في متصفح سامسونج: اضغط القائمة ≡ ثم «إضافة الصفحة إلى» ثم «الشاشة الرئيسية».']);
+  const deskSteps = block('الكمبيوتر (Chrome أو Edge)', ['اضغط أيقونة التثبيت في شريط العنوان، أو القائمة ثم «تثبيت …».']);
+  modal(
+    'تثبيت التطبيق على شاشة الجوال',
+    h(
+      'div',
+      { class: 'stack' },
+      h('p', { class: 'muted', text: 'يصبح للموقع أيقونة على شاشتك الرئيسية ويفتح بملء الشاشة، ويتحدّث وحده دون تنزيل شيء.' }),
+      inApp && h('p', { class: 'notice', text: 'أنت تفتح الصفحة من داخل تطبيق آخر. افتحها أولًا في المتصفح (القائمة ثم «فتح في المتصفح») ثم ثبّتها من هناك.' }),
+      ios ? iosSteps : android ? androidSteps : [androidSteps, iosSteps, deskSteps],
+    ),
+  );
+}
 
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
@@ -5352,32 +5415,11 @@ function offlineSection() {
 
 /** The settings block that helps to put the site on the phone like an app. */
 function installSection() {
-  const standalone = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
-  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const offerBtn = installOffer
-    ? h('button', {
-        class: 'btn small primary',
-        type: 'button',
-        text: 'تثبيت التطبيق الآن',
-        onclick: async () => {
-          const offer = installOffer;
-          installOffer = null;
-          offer.prompt();
-          await offer.userChoice.catch(() => {});
-        },
-      })
-    : null;
   return [
     h('div', { class: 'section-title', text: 'تطبيق على الجوال' }),
-    standalone
+    isStandalone()
       ? h('p', { class: 'muted', text: 'أنت تستخدم التطبيق الآن. أي تحديث للموقع يصلك تلقائيًا عند فتحه.' })
-      : h(
-          'div',
-          { class: 'stack' },
-          h('p', { class: 'muted', text: 'ضع الموقع على شاشة جوالك كتطبيق: أيقونة وملء الشاشة، ويتحدّث وحده دون تنزيل شيء.' }),
-          offerBtn,
-          h('p', { class: 'muted small-note', text: ios ? 'على آيفون (متصفح Safari): اضغط زر المشاركة ثم «إضافة إلى الشاشة الرئيسية».' : 'على أندرويد (متصفح Chrome): اضغط القائمة ⋮ ثم «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».' }),
-        ),
+      : h('div', { class: 'stack' }, h('p', { class: 'muted', text: 'ضع الموقع على شاشة جوالك كتطبيق: أيقونة وملء الشاشة، ويتحدّث وحده دون تنزيل شيء.' }), installPill({ always: true })),
   ];
 }
 
