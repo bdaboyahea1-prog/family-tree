@@ -981,3 +981,8 @@ dialog.modal::backdrop { background: rgba(10, 16, 13, 0.55); }
 @media (max-width: 760px) {
   .panel .quick { position: static; inset: auto; width: auto; max-height: none; overflow: visible; margin: 14px 0; padding: 12px; box-shadow: none; background: var(--bg); }
 }
+
+/* a signed-in member: no flash of the public text while the app starts (see the script in index.html) */
+.member-loading { display: none; }
+html.member .static-landing { display: none; }
+html.member .member-loading { display: grid; min-height: 100vh; }
