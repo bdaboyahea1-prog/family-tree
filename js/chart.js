@@ -4,6 +4,7 @@ import { genderIcon } from './gender.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const MIN_K = 0.2;
+const FIT_MIN_K = MIN_K; // the first view shows the whole tree whenever "عرض الكل" could (it cannot go below the smallest zoom)
 const MAX_K = 2.5;
 
 const wifeColor = (i) => SPOUSE_COLORS[i % SPOUSE_COLORS.length];
@@ -417,7 +418,8 @@ export class Chart {
     if (this.result.orientation === 'horizontal') {
       // root against the right edge, the tree centred vertically when it fits
       const vh = this.vp.clientHeight;
-      const k = Math.min(1, Math.max(0.6, (vh - 40) / b.h));
+      const kAll = Math.min(1, (vw - 24) / b.w, (vh - 24) / b.h); // the whole tree on the screen...
+      const k = kAll >= FIT_MIN_K ? kAll : Math.min(1, Math.max(0.6, (vh - 40) / b.h)); // ...unless it would be too small to tell apart
       this.k = k;
       this.ty = b.h * k <= vh - 16 ? (vh - b.h * k) / 2 - b.minY * k : vh / 2 - (root.y + root.h / 2) * k;
       this.tx = b.w * k <= vw - 16 ? (vw - b.w * k) / 2 - b.minX * k : vw - 24 - (root.x + root.w) * k;
@@ -434,13 +436,22 @@ export class Chart {
       this.#apply();
       return;
     }
-    const k = Math.min(1, Math.max(0.6, (vw - 32) / b.w));
+    const vh = this.vp.clientHeight;
+    // The first view is the whole tree (what "عرض الكل" gives), so that a phone does not open on a part of it. A tree so big
+    // that it would be tiny opens at a readable size on its root, as before.
+    const kAll = Math.min(1, (vw - 24) / b.w, (vh - 24) / b.h);
+    const k = kAll >= FIT_MIN_K ? kAll : Math.min(1, Math.max(0.6, (vw - 32) / b.w));
     this.k = k;
     const cx = root.x + root.w / 2;
     // Centre the drawing horizontally when it fits, else centre on the root card.
     const fits = b.w * k <= vw - 16;
     this.tx = fits ? (vw - b.w * k) / 2 - b.minX * k : vw / 2 - cx * k;
-    this.ty = this.result.orientation === 'tree' ? Math.min(24 - b.minY * k, this.vp.clientHeight - 24 - b.maxY * k) : 24 - b.minY * k;
+    // a tree that is wide but short leaves the lower part of a phone empty: put it in the middle then (never above the top margin)
+    const spare = vh - b.h * k;
+    this.ty =
+      this.result.orientation === 'tree'
+        ? Math.min(24 - b.minY * k, vh - 24 - b.maxY * k)
+        : (kAll >= FIT_MIN_K && spare > 48 ? Math.max(24, spare / 2) : 24) - b.minY * k;
     this.#apply();
   }
 
