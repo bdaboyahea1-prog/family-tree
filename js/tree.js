@@ -173,6 +173,20 @@ const asWritten = (v) => {
   return t.length > 16 ? `${t.slice(0, 15)}…` : t;
 };
 
+/**
+ * The name written on a card: the first name, then the father's first name, then the family: "عبد الله يحيى هرموش".
+ * With no father on record it is just "first name + family". The father's name is not repeated when the first name
+ * already ends with it ("عبد الله يحيى" for a son of يحيى), but a son with the same name as his father keeps both.
+ */
+export function cardName(index, p) {
+  const first = String(p.first_name || '').trim();
+  const dad = String(index.byId.get(p.father_id)?.first_name || '').trim();
+  const dadNorm = normalize(dad);
+  const firstNorm = normalize(first);
+  const already = dadNorm && firstNorm !== dadNorm && (firstNorm.endsWith(' ' + dadNorm) || firstNorm === dadNorm + ' ');
+  return [first, dad && !already ? dad : '', String(p.last_name || '').trim()].filter(Boolean).join(' ').replace(/\s+/g, ' ');
+}
+
 export function lifeSpan(p) {
   const b = yearOf(p.birth_date);
   const d = yearOf(p.death_date);

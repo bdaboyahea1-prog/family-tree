@@ -44,7 +44,7 @@ function makeActions(p, canAdd) {
  * The card of one person, without a position: the figure (or the photo), the name, the nickname, the years and, when
  * asked, the two buttons. How it looks is decided by the CSS of the look chosen in the settings (js/cardstyles.js).
  */
-export function makeCard(p, { photo = null, actions = false, canAdd = false } = {}) {
+export function makeCard(p, { photo = null, actions = false, canAdd = false, name = null } = {}) {
   const node = el('div', `card ${p.gender}`);
   if (p.is_deceased) node.classList.add('deceased');
   const avatar = el('div', 'avatar');
@@ -58,7 +58,10 @@ export function makeCard(p, { photo = null, actions = false, canAdd = false } = 
     avatar.append(genderIcon(p.gender)); // a man or a woman, not the first letter
   }
   const txt = el('div', 'txt');
-  txt.append(el('div', 'nm', fullName(p)));
+  const shown = name ?? fullName(p);
+  const nm = el('div', 'nm', shown);
+  nm.title = shown; // a long name may be cut on the card: the whole of it is here
+  txt.append(nm);
   if (p.nickname) txt.append(el('div', 'nick', p.nickname)); // the name he / she is known by, right under the name
   txt.append(el('div', 'yr', lifeSpan(p))); // empty when nothing is known: some looks still draw the strip
   node.append(avatar, txt);
@@ -244,7 +247,7 @@ export class Chart {
   #card(c) {
     const p = this.personOf(c.personId);
     const head = this.result?.head || 0; // the top of the box belongs to the figure that rises above the card
-    const node = makeCard(p, { photo: this.photoUrl(p), actions: this.options.actions, canAdd: this.options.actions && this.canAdd(c.personId) });
+    const node = makeCard(p, { photo: this.photoUrl(p), actions: this.options.actions, canAdd: this.options.actions && this.canAdd(c.personId), name: this.nameOf(p) });
     node.dataset.id = c.personId;
     if (c.node && c.node.branch >= 0) node.dataset.br = c.node.branch;
     node.style.cssText = `left:${c.x}px;top:${c.y + head}px;width:${c.w}px;height:${c.h - head}px;`;
@@ -330,6 +333,9 @@ export class Chart {
 
   /** Set by the app: id -> person record. */
   personOf = () => ({ first_name: '?', gender: 'male' });
+
+  /** Set by the app: the name written on a card (first name + father + family, or the plain name). */
+  nameOf = (p) => fullName(p);
 
   /** Set by the app: may the user add anyone around this person? (decides whether the card gets an "إضافة" button) */
   canAdd = () => false;

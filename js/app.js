@@ -5,7 +5,7 @@ import {
   buildIndex, buildHierarchy, layout, autoCollapse, defaultRoot, topAncestor, lineAncestorsOf,
   lineParent, commonChildren, descendantsOf, search, describe, fullName, lifeSpan, SPOUSE_COLORS,
   spouseLabel, spouseLines, countryList, countryLabel, residenceText, birthText, placeOf, placeStats, filterPersons,
-  fatherLine, motherLine, polar, SIZE,
+  fatherLine, motherLine, polar, SIZE, cardName,
 } from './tree.js';
 import { PhotoStore, compressImage } from './photos.js';
 import { provincesOf, citiesOf } from './places-data.js';
@@ -2008,6 +2008,12 @@ function setLook(key, value, { focus = false } = {}) {
 const setShowWives = (on) => setLook('showWives', on);
 const setShowFemales = (on) => setLook('showFemales', on);
 const setWifeColors = (on) => setLook('wifeColors', on);
+const setTripleName = (on) => setLook('tripleName', on);
+
+/** The name of a person as the card and the panel show it: with the father's name when that look is on. */
+function displayName(p) {
+  return state.tripleName && state.index ? cardName(state.index, p) : fullName(p);
+}
 const setBranchColors = (on) => setLook('branchColors', on);
 const setShowYears = (on) => setLook('showYears', on);
 const setCurves = (on) => setLook('curves', on);
@@ -2052,7 +2058,7 @@ function cardStyleChooser() {
     const m = cardMetrics(st.id, { nick: true, acts: true, years: true });
     const k = 0.62; // the preview is a little smaller than the real card
     const thumb = h('div', { class: 'cs-thumb', 'data-card': st.id, 'aria-hidden': 'true', style: `height:${Math.round(m.cardH * k) + 8}px` });
-    const card = makeCard(sample, { actions: true, canAdd: true });
+    const card = makeCard(sample, { actions: true, canAdd: true, name: 'أحمد يحيى الراشد' });
     card.style.cssText = `left:50%;top:${m.head}px;width:${m.cardW}px;height:${m.cardH - m.head}px;transform:translateX(-50%) scale(${k});transform-origin:50% ${-m.head}px;`;
     thumb.append(card);
     thumb.inert = true; // the buttons drawn inside are only a picture
@@ -2552,6 +2558,12 @@ function openSettings() {
           onChange: setBranchColors,
         }),
         settingRow({
+          title: 'الاسم الثلاثي في البطاقة',
+          desc: 'يظهر على البطاقة اسم الشخص ثم اسم أبيه ثم العائلة، مثل: عبد الله يحيى هرموش. عند الإيقاف يظهر الاسم والعائلة فقط.',
+          checked: state.tripleName,
+          onChange: setTripleName,
+        }),
+        settingRow({
           title: 'أشرطة الأجيال',
           desc: 'شريط خلف كل جيل مكتوب عليه الجيل الأول والثاني… يعمل مع الشكل العمودي الكلاسيكي فقط.',
           checked: state.bands,
@@ -2875,6 +2887,7 @@ function mountMain(treeName) {
   ui = { viewport, loading, zoom, empty, panel, quick, results, bellBadge };
   chart = new Chart(viewport, { onSelect, onToggle, onAction });
   chart.personOf = (id) => state.index.byId.get(id);
+  chart.nameOf = displayName;
   chart.canAdd = (id) => {
     const p = state.index.byId.get(id);
     return !!p && hasBackend() && Object.values(addOptions(p)).some((o) => o.ok);
@@ -3496,7 +3509,7 @@ function renderPanel() {
       'div',
       { class: 'panel-head' },
       avatar,
-      h('div', {}, h('h2', { text: fullName(p) }), h('div', { class: 'sub', text: [p.gender === 'male' ? 'ذكر' : 'أنثى', lifeSpan(p)].filter(Boolean).join(' · ') })),
+      h('div', {}, h('h2', { text: displayName(p) }), h('div', { class: 'sub', text: [p.gender === 'male' ? 'ذكر' : 'أنثى', lifeSpan(p)].filter(Boolean).join(' · ') })),
       miniBtn('x', 'إغلاق', () => (select(null), chart.setSelected(null), renderPanel())),
     ),
     scopeNote && h('div', { class: 'notice', text: scopeNote }),

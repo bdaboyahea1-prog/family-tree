@@ -29,7 +29,7 @@ for (const s of CARD_STYLES) {
 }
 assert.equal(cardMetrics('portrait', all).head, 26, 'the figure rises 26px above the card');
 assert.ok(CARD_STYLES.filter((s) => s.id !== 'portrait').every((s) => cardMetrics(s.id, all).head === 0), 'only that look has a part above the card');
-assert.deepEqual(cardMetrics('pill', all), { cardW: 214, cardH: 48, head: 0 });
+assert.deepEqual(cardMetrics('pill', all), { cardW: 260, cardH: 52, head: 0 });
 assert.deepEqual(cardMetrics('nonsense', all), cardMetrics(DEFAULT_CARD_STYLE, all), 'an unknown name falls back to the default look');
 assert.ok(cardMetrics('portrait', { ...all, nick: false, acts: false, years: false }).cardH >= 26 + 36 + 8 + 30, 'name, strip and room for the figure');
 
@@ -59,7 +59,7 @@ assert.equal(plain.head, 0, 'without the option nothing changes');
 assert.equal(plain.edges[0].y1, plain.cards[0].y + SIZE.cardH);
 
 const wide = layout(root, { size: { ...SIZE, ...cardMetrics('pill', all) } });
-assert.equal(wide.cards[0].w, 214);
-assert.equal(wide.cards[0].h, 48);
+assert.equal(wide.cards[0].w, 260);
+assert.equal(wide.cards[0].h, 52);
 
 console.log('CARD STYLES OK');

@@ -23,6 +23,7 @@ const RULES = {
   cardButtons: bool, // the "إضافة" and "عرض" buttons on every card
   showFemales: bool, // women's cards in the tree (off = the male line only)
   wifeColors: bool, // a man with several wives: a circle in a colour by each wife, the same colour on her children
+  tripleName: bool, // the name on a card: first name + father's name + family
 };
 
 export const LOOK_KEYS = Object.keys(RULES);
@@ -39,6 +40,7 @@ export const FACTORY_LOOK = Object.freeze({
   cardButtons: true,
   showFemales: true,
   wifeColors: true,
+  tripleName: true,
 });
 
 /** Only the known keys with allowed values; anything else (also from an old or damaged record) is dropped. */
