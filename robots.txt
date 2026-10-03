@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://bdaboyahea1-prog.github.io/family-tree/sitemap.xml
