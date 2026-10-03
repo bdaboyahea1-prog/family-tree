@@ -976,3 +976,8 @@ dialog.modal::backdrop { background: rgba(10, 16, 13, 0.55); }
 }
 .offline-banner span { flex: 1 1 auto; min-width: 0; }
 .offline-banner .btn { flex: none; white-space: nowrap; min-height: 30px; padding: 2px 10px; }
+
+/* a phone: the quick / information table sits inside the sheet of the card, not over the tree */
+@media (max-width: 760px) {
+  .panel .quick { position: static; inset: auto; width: auto; max-height: none; overflow: visible; margin: 14px 0; padding: 12px; box-shadow: none; background: var(--bg); }
+}

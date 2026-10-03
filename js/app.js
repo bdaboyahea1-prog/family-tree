@@ -198,6 +198,114 @@ function toast(msg, isErr = false) {
   toastTimer = setTimeout(() => (t.className = ''), isErr ? 5000 : 2800);
 }
 
+// ====================================================================
+// the back button of the phone
+// ====================================================================
+// A dialog, the search page and the card panel are "layers" over the main screen. Opening one adds an entry to the history, so the back
+// button closes the top layer (and shows what was under it) instead of leaving the app. On the main screen the first press only says
+// so, and a second press leaves. Only touch screens (phones, tablets) do this: a computer keeps the normal behaviour of the browser.
+//
+// Every entry we add carries its depth ({ ftLayer: k }); the entry of the main screen carries { ftHome: true }. After any step through
+// the history the stack of layers is brought to the depth of the entry where the person landed: that is all "back" has to do.
+
+const TOUCH = !!window.matchMedia?.('(pointer: coarse), (max-width: 600px)').matches;
+const HOME_STATE = { ftHome: true };
+const backLayers = []; // the layers that are open, the top one last: { close, gone, k }
+let selfUntil = 0; // until when a step through the history is one we took ourselves (a layer closed by its own button)
+let homeLeft = false; // the entry of the main screen was used up by a press of "back" (the hint is showing)
+let homeTimer = null;
+const depthOf = (st) => (typeof st?.ftLayer === 'number' ? st.ftLayer : 0);
+
+/** A layer was opened: it gets one history entry. `close` closes it (it is called when "back" removes the entry). */
+function backPush(close) {
+  if (!TOUCH) return null;
+  const layer = { close, gone: false, k: depthOf(history.state) + 1 };
+  backLayers.push(layer);
+  history.pushState({ ftLayer: layer.k }, '');
+  return layer;
+}
+
+/** The layers on top that are already closed give their entries back (one step through the history). */
+function backTrim() {
+  if (!backLayers.at(-1)?.gone) return false;
+  while (backLayers.at(-1)?.gone) backLayers.pop();
+  const delta = depthOf(history.state) - (backLayers.at(-1)?.k ?? 0);
+  if (delta <= 0) return false;
+  selfUntil = performance.now() + 500;
+  history.go(-delta);
+  return true;
+}
+
+/** A layer was closed by something other than "back" (its own button). Its entry is given back a moment later, so that a layer
+ *  opened in the same breath (a menu item that opens a dialog) is not mixed up with it. */
+function backRelease(layer) {
+  if (!layer || layer.gone) return;
+  layer.gone = true;
+  setTimeout(backTrim, 0);
+}
+
+function restoreHome() {
+  clearTimeout(homeTimer);
+  if (!homeLeft || backLayers.length) return;
+  homeLeft = false;
+  history.pushState(HOME_STATE, ''); // the next press of "back" shows the hint again
+}
+
+window.addEventListener('popstate', () => {
+  if (!TOUCH || !ui?.viewport?.isConnected) return; // not the main screen (sign-in, front page): the browser does what it does
+  const ours = performance.now() < selfUntil;
+  selfUntil = 0;
+  const wasEmpty = backLayers.length === 0;
+  const depth = depthOf(history.state);
+  let closed = false;
+  while (backLayers.length && backLayers.at(-1).k > depth) {
+    const layer = backLayers.pop();
+    if (!layer.gone) {
+      layer.gone = true;
+      layer.close();
+      closed = true;
+    }
+  }
+  if (ours) return void (backLayers.length || restoreHome());
+  if (closed) return void setTimeout(() => backTrim() || restoreHome(), 30); // (a step taken inside popstate itself is dropped by the browser)
+  if (wasEmpty && depth === 0 && !history.state?.ftHome) {
+    // the main screen: the first press tells, the second one leaves (nothing is under this entry any more)
+    toast('اضغط «رجوع» مرة أخرى للخروج');
+    homeLeft = true;
+    clearTimeout(homeTimer);
+    homeTimer = setTimeout(restoreHome, 2500);
+  }
+});
+
+if (TOUCH) {
+  // the entry of the main screen is added at the first touch (a browser skips entries that a page adds before the person did anything)
+  const arm = () => {
+    if (!ui?.viewport?.isConnected) return;
+    removeEventListener('pointerup', arm, true);
+    removeEventListener('click', arm, true);
+    if (!history.state?.ftHome && !history.state?.ftLayer) history.pushState(HOME_STATE, '');
+  };
+  addEventListener('pointerup', arm, true);
+  addEventListener('click', arm, true);
+}
+
+/** The card panel is a layer while a card is chosen. */
+let panelLayer = null;
+function syncPanelLayer(open) {
+  if (open && !panelLayer) {
+    panelLayer = backPush(() => {
+      panelLayer = null;
+      select(null);
+      chart?.setSelected(null);
+      renderPanel();
+    });
+  } else if (!open && panelLayer) {
+    const layer = panelLayer;
+    panelLayer = null;
+    backRelease(layer);
+  }
+}
+
 function friendly(err) {
   const m = String(err?.message || err || '');
   const map = [
@@ -282,7 +390,11 @@ function modal(title, body, { onclose, backdropClose = true } = {}) {
     ),
     h('div', { class: 'modal-body' }, body),
   );
+  const layer = backPush(() => dlg.close());
+  const closeDialog = dlg.close.bind(dlg);
+  dlg.close = (...a) => (closeDialog(...a), backRelease(layer));
   dlg.addEventListener('close', () => {
+    backRelease(layer);
     dlg.remove();
     if (onclose) onclose();
   });
@@ -1500,6 +1612,7 @@ async function signOut() {
 }
 
 function teardownTree() {
+  syncPanelLayer(false);
   if (state.channel) sb.removeChannel(state.channel);
   state.channel = null;
   chart = null;
@@ -1575,7 +1688,7 @@ const hasSnapshot = () => {
   return !!id && id === authUserId();
 };
 const goOffline = () => {
-  location.hash = '#/offline';
+  history.replaceState(null, '', location.pathname + location.search + '#/offline');
   location.reload();
 };
 const leaveOffline = () => {
@@ -1872,7 +1985,9 @@ function openSearchPage() {
   let shown = 100;
 
   const page = h('div', { class: 'page', role: 'dialog', 'aria-label': 'البحث والتصفية' });
+  const layer = backPush(() => close());
   const close = () => {
+    backRelease(layer);
     page.remove();
     document.removeEventListener('keydown', onKey);
   };
@@ -3279,29 +3394,28 @@ async function cardImageBlob(p, name) {
   return new Promise((resolve, reject) => cv.toBlob((b) => (b ? resolve(b) : reject(new Error('no image'))), 'image/png'));
 }
 
-/** Share one card: a picture and a line of text through the share list of the phone; WhatsApp when there is none. */
+/**
+ * Share one card through the share list of the phone: the Excel file of the person (the same file as «تصدير بياناته إلى Excel»)
+ * and the picture of the card. If the phone takes only one file, the Excel file goes alone; with no sharing at all it is downloaded.
+ */
 async function shareCard(p) {
   const name = displayName(p);
-  const years = lifeSpan(p);
-  const url = location.origin + location.pathname;
-  const text = [name + (p.nickname ? ` («${p.nickname}»)` : ''), years, `من شجرة عائلة ${FAMILY}`].filter(Boolean).join('\n');
-  const data = { title: name, text, url };
+  const text = [name + (p.nickname ? ` («${p.nickname}»)` : ''), lifeSpan(p), `من شجرة عائلة ${FAMILY}`].filter(Boolean).join('\n');
+  const xl = personXlsxFile(p);
+  const sheet = new File([xl.blob], xl.name, { type: XLSX_MIME });
+  let picture = null;
   try {
-    const blob = await cardImageBlob(p, name);
-    const file = new File([blob], 'card.png', { type: 'image/png' });
-    if (navigator.canShare?.({ files: [file] })) data.files = [file];
+    picture = new File([await cardImageBlob(p, name)], 'card.png', { type: 'image/png' });
   } catch {
-    /* no picture: the text is shared alone */
+    /* no picture: the Excel file goes alone */
   }
-  if (navigator.share) {
-    try {
-      await navigator.share(data);
-    } catch (ex) {
-      if (ex?.name !== 'AbortError') toast('تعذّرت المشاركة', true); // closing the list is not an error
-    }
-    return;
+  const files = [picture && [sheet, picture], [sheet]].filter(Boolean).find((f) => navigator.canShare?.({ files: f }));
+  if (!navigator.share || !files) return exportPersonXlsx(p);
+  try {
+    await navigator.share({ files, title: name, text });
+  } catch (ex) {
+    if (ex?.name !== 'AbortError') toast('تعذّرت المشاركة', true); // closing the list is not an error
   }
-  window.open(`https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}`, '_blank', 'noopener');
 }
 
 /** Everyone above a person, from the first (oldest) ancestor down to them, on the father's and the mother's side. */
@@ -3364,11 +3478,17 @@ function openAncestors(p) {
 }
 
 /** One person -> an Excel file: the card, the ancestors, the wives / husbands and the children. */
+/** The Excel file of one person: its name and its content. */
+function personXlsxFile(p) {
+  const mother = state.index.byId.get(p.mother_id);
+  const bytes = buildXlsx(personSheets(state.index, p, infoRowsOf(p), mother ? infoRowsOf(mother) : []));
+  return { name: `${fileSafe(currentTree()?.name)} - ${fileSafe(fullName(p))}.xlsx`, blob: new Blob([bytes], { type: XLSX_MIME }) };
+}
+
 function exportPersonXlsx(p) {
   run(async () => {
-    const mother = state.index.byId.get(p.mother_id);
-    const bytes = buildXlsx(personSheets(state.index, p, infoRowsOf(p), mother ? infoRowsOf(mother) : []));
-    downloadBlob(`${fileSafe(currentTree()?.name)} - ${fileSafe(fullName(p))}.xlsx`, new Blob([bytes], { type: XLSX_MIME }));
+    const f = personXlsxFile(p);
+    downloadBlob(f.name, f.blob);
     toast('تم تنزيل ملف Excel');
   });
 }
@@ -3491,14 +3611,16 @@ function quickSigOf(p) {
 }
 
 /**
- * A woman's information table opens by itself when her card is chosen (next to the card's details),
- * as soon as the tree is on the "information only" rule and the user may write in it, or she already has rows.
- * Not on a phone: there the table would cover the screen, so it stays behind the button.
+ * A woman's information table opens by itself when her card is chosen (next to the card's details; on a phone, inside the sheet
+ * of the card, under her details and before the buttons), as soon as the tree is on the "information only" rule and the user may
+ * write in it, or she already has rows.
  */
 function showsInfoTable(p) {
-  const phone = window.innerWidth > 0 && window.innerWidth <= 760; // 0 = the page is hidden right now: not a phone
-  return !phone && p.gender === 'female' && hasBackend() && (canAddInfo(p) || infoRowsOf(p).length > 0);
+  return p.gender === 'female' && hasBackend() && (canAddInfo(p) || infoRowsOf(p).length > 0);
 }
+
+/** On a phone the table is part of the sheet of the card (the screen is too small for a second panel beside it). */
+const quickInSheet = () => window.innerWidth > 0 && window.innerWidth <= 760; // 0 = the page is hidden right now: not a phone
 
 function openQuick(p, mode = 'cards', { focus = true } = {}) {
   state.quickMode = mode;
@@ -3510,7 +3632,9 @@ function openQuick(p, mode = 'cards', { focus = true } = {}) {
   infoOpen.clear();
   renderPanel(); // the button shows it is pressed (and draws the table, see renderPanel)
   if (ui.quick.hidden) renderQuick();
-  if (focus) ui.quick.querySelector('input')?.focus();
+  if (!focus) return;
+  if (quickInSheet()) ui.quick.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); // (focusing a field would raise the keyboard)
+  else ui.quick.querySelector('input')?.focus();
 }
 
 function closeQuick() {
@@ -3789,6 +3913,7 @@ function relRow(p, { sub, dot, onRemove, removeLabel } = {}) {
 function renderPanel() {
   const p = state.selectedId && state.index.byId.get(state.selectedId);
   ui.panel.hidden = !p;
+  syncPanelLayer(!!p);
   if (state.quickFor && state.quickFor !== p?.id) closeQuick(); // another card (or none): the table belongs to one person
   const newSelection = !!p && ui.panelFor !== p.id; // this card was just chosen (not just refreshed)
   if (!p) {
@@ -3919,6 +4044,9 @@ function renderPanel() {
     kids.length > 0 && h('div', { class: 'section-title', text: `الأبناء (${kids.length})` }),
     kids.length > 0 && h('ul', { class: 'rel-list' }, kids.map(kidRow)),
 
+    // on a phone the quick / information table is here, in the sheet: after the details and the relatives, before the buttons
+    quickInSheet() && state.quickFor === p.id && ui.quick,
+
     h(
       'div',
       { class: 'actions' },
@@ -3945,7 +4073,7 @@ function renderPanel() {
         (father || mother) && h('button', { class: 'btn', type: 'button', onclick: () => openAncestors(p), text: 'عرض الأجداد' }),
         h('button', { class: 'btn', type: 'button', onclick: () => exportPersonXlsx(p), text: 'تصدير بياناته إلى Excel' }),
       ),
-      h('button', { class: 'btn only-touch', type: 'button', onclick: () => shareCard(p), text: 'مشاركة البطاقة (واتساب وغيره)' }),
+      h('button', { class: 'btn only-touch', type: 'button', onclick: () => shareCard(p), text: 'مشاركة: ملف Excel + صورة البطاقة (واتساب وغيره)' }),
       canManage && h('button', { class: 'btn', type: 'button', onclick: () => openBranchAccess(p), text: 'دعوة وصلاحيات هذا الفرع' }),
       hasBackend() && state.role === 'viewer' && !perms.isBranchHead(p) && h('button', { class: 'btn', type: 'button', onclick: () => openRequestDialog(p), text: 'طلب صلاحية على هذا الفرع' }),
       hasBackend() && h('button', { class: 'btn', type: 'button', onclick: () => openReportDialog(p), text: 'ابلغ عن خطأ بالمعلومات' }),
@@ -3956,6 +4084,7 @@ function renderPanel() {
     hasBackend() && commentsBox(p),
   );
 
+  if (!ui.quick.isConnected) ui.panel.before(ui.quick); // not in the sheet (a wide screen, or another card): beside the panel as before
   chart.setHighlight(
     state.activeSpouse ? new Set(commonChildren(idx, p.id, state.activeSpouse).map((c) => c.id)) : null,
   );
