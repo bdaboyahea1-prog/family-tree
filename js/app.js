@@ -3068,6 +3068,128 @@ function downloadBlob(filename, blob) {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+// ---------- sharing a card (the phone's own share list: WhatsApp and the others) ----------
+
+/** The card as a picture: name, nickname, years, and the colour of the gender. Only what is on the card itself. */
+async function cardImageBlob(p, name) {
+  const W = 900;
+  const H = 540;
+  const cv = document.createElement('canvas');
+  cv.width = W;
+  cv.height = H;
+  const g = cv.getContext('2d');
+  const color = p.gender === 'female' ? '#b5527a' : '#3b6ea5';
+  try {
+    await document.fonts.load('700 56px Tajawal');
+  } catch {
+    /* the picture is drawn with the system font then */
+  }
+  const font = (px) => `700 ${px}px Tajawal, system-ui, sans-serif`;
+  const round = (x, y, w, h, r) => {
+    g.beginPath();
+    g.moveTo(x + r, y);
+    g.arcTo(x + w, y, x + w, y + h, r);
+    g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r);
+    g.arcTo(x, y, x + w, y, r);
+    g.closePath();
+  };
+  g.fillStyle = '#f4f2ec';
+  g.fillRect(0, 0, W, H);
+  // the card
+  const cx = 60;
+  const cy = 120;
+  const cw = W - 120;
+  const ch = H - 200;
+  g.fillStyle = '#ffffff';
+  round(cx, cy, cw, ch, 30);
+  g.fill();
+  g.lineWidth = 3;
+  g.strokeStyle = '#ddd8cb';
+  g.stroke();
+  // the strip with the years
+  g.save();
+  round(cx, cy, cw, ch, 30);
+  g.clip();
+  g.fillStyle = color;
+  g.fillRect(cx, cy + ch - 96, cw, 96);
+  g.restore();
+  // the figure in a ring, rising above the card
+  g.fillStyle = '#ffffff';
+  g.beginPath();
+  g.arc(W / 2, cy, 70, 0, Math.PI * 2);
+  g.fill();
+  g.lineWidth = 8;
+  g.strokeStyle = color;
+  g.stroke();
+  g.fillStyle = color;
+  g.beginPath();
+  g.arc(W / 2, cy - 18, 17, 0, Math.PI * 2);
+  g.fill();
+  g.beginPath();
+  if (p.gender === 'female') {
+    g.moveTo(W / 2, cy + 2);
+    g.lineTo(W / 2 + 28, cy + 44);
+    g.lineTo(W / 2 - 28, cy + 44);
+  } else {
+    round(W / 2 - 22, cy + 2, 44, 42, 10);
+  }
+  g.closePath();
+  g.fill();
+  // the texts
+  g.direction = 'rtl';
+  g.textAlign = 'center';
+  const fit = (text, px, max) => {
+    let size = px;
+    g.font = font(size);
+    while (g.measureText(text).width > max && size > 22) g.font = font((size -= 2));
+    return size;
+  };
+  g.fillStyle = '#1f2a24';
+  fit(name, 54, cw - 80);
+  g.fillText(name, W / 2, cy + 118);
+  if (p.nickname) {
+    g.fillStyle = color;
+    fit(p.nickname, 36, cw - 80);
+    g.fillText(p.nickname, W / 2, cy + 166);
+  }
+  const years = lifeSpan(p);
+  if (years) {
+    g.fillStyle = '#ffffff';
+    g.font = font(46);
+    g.fillText(years, W / 2, cy + ch - 30);
+  }
+  g.fillStyle = '#68726c';
+  g.font = font(28);
+  g.fillText(`شجرة عائلة ${FAMILY}`, W / 2, H - 36);
+  return new Promise((resolve, reject) => cv.toBlob((b) => (b ? resolve(b) : reject(new Error('no image'))), 'image/png'));
+}
+
+/** Share one card: a picture and a line of text through the share list of the phone; WhatsApp when there is none. */
+async function shareCard(p) {
+  const name = displayName(p);
+  const years = lifeSpan(p);
+  const url = location.origin + location.pathname;
+  const text = [name + (p.nickname ? ` («${p.nickname}»)` : ''), years, `من شجرة عائلة ${FAMILY}`].filter(Boolean).join('\n');
+  const data = { title: name, text, url };
+  try {
+    const blob = await cardImageBlob(p, name);
+    const file = new File([blob], 'card.png', { type: 'image/png' });
+    if (navigator.canShare?.({ files: [file] })) data.files = [file];
+  } catch {
+    /* no picture: the text is shared alone */
+  }
+  if (navigator.share) {
+    try {
+      await navigator.share(data);
+    } catch (ex) {
+      if (ex?.name !== 'AbortError') toast('تعذّرت المشاركة', true); // closing the list is not an error
+    }
+    return;
+  }
+  window.open(`https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}`, '_blank', 'noopener');
+}
+
 /** Everyone above a person, from the first (oldest) ancestor down to them, on the father's and the mother's side. */
 function openAncestors(p) {
   const idx = state.index;
@@ -3709,6 +3831,7 @@ function renderPanel() {
         (father || mother) && h('button', { class: 'btn', type: 'button', onclick: () => openAncestors(p), text: 'عرض الأجداد' }),
         h('button', { class: 'btn', type: 'button', onclick: () => exportPersonXlsx(p), text: 'تصدير بياناته إلى Excel' }),
       ),
+      h('button', { class: 'btn only-touch', type: 'button', onclick: () => shareCard(p), text: 'مشاركة البطاقة (واتساب وغيره)' }),
       canManage && h('button', { class: 'btn', type: 'button', onclick: () => openBranchAccess(p), text: 'دعوة وصلاحيات هذا الفرع' }),
       hasBackend() && state.role === 'viewer' && !perms.isBranchHead(p) && h('button', { class: 'btn', type: 'button', onclick: () => openRequestDialog(p), text: 'طلب صلاحية على هذا الفرع' }),
       hasBackend() && h('button', { class: 'btn', type: 'button', onclick: () => openReportDialog(p), text: 'ابلغ عن خطأ بالمعلومات' }),

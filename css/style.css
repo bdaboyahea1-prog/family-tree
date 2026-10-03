@@ -964,3 +964,7 @@ dialog.modal::backdrop { background: rgba(10, 16, 13, 0.55); }
   .stage.far .card .nm, .stage.far .card .nick, .stage.far .card .acts, .stage.far .wives { display: none; }
   .stage.far .card .nm-far { display: block; font-size: min(calc(11px / var(--k, 1)), 38px); }
 }
+
+/* a button for touch screens (phones, tablets) only */
+.only-touch { display: none !important; }
+@media (pointer: coarse) { .only-touch { display: inline-flex !important; } }
