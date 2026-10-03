@@ -12,7 +12,7 @@ const m = JSON.parse(read('manifest.webmanifest'));
 assert.equal(m.display, 'standalone', 'opens like an app, without the browser bars');
 assert.equal(m.dir, 'rtl');
 assert.equal(m.lang, 'ar');
-assert.ok(m.name && m.short_name && m.short_name.length <= 12, 'a name, and a short one for under the icon');
+assert.ok(m.name && m.short_name && m.short_name.length <= 24, 'a name, and one for under the icon (the family chose «شجرة العائلة آل هرموش»; a launcher may cut a long one)');
 assert.equal(m.start_url, './', 'relative: the site lives in a sub-folder (/family-tree/)');
 assert.equal(m.scope, './');
 assert.match(m.theme_color, /^#[0-9a-f]{6}$/i);

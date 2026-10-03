@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>رسم أيقونات التطبيق</title>
+<!-- Draws the app icons (the name «آل هرموش» in big letters on the green of the site) and offers them as downloads.
+     Open this file in a browser, press «تنزيل» under each picture and put the four files in icons/ (replacing the old ones).
+     It is a page and not a Python script because the browser shapes Arabic letters by itself (Pillow without Raqm cannot).
+       icon-192.png, icon-512.png     rounded square: the home screen and the install prompt
+       icon-maskable-512.png          full square with the name inside the safe circle: Android cuts it to any shape
+       apple-touch-icon.png (180)     full square: iPhone / iPad home screen (iOS rounds it itself) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  body { font-family: Tajawal, system-ui, sans-serif; margin: 0; padding: 24px; background: #f4f2ec; color: #1f2a24; }
+  h1 { font-size: 20px; margin: 0 0 16px; }
+  .row { display: flex; flex-wrap: wrap; gap: 24px; }
+  figure { margin: 0; text-align: center; }
+  canvas { display: block; background: repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 0 0 / 16px 16px; border-radius: 6px; margin-bottom: 8px; max-width: 256px; height: auto; }
+  a { display: inline-block; padding: 6px 14px; border-radius: 8px; background: #2f6f4f; color: #fff; text-decoration: none; font-weight: 700; }
+</style>
+</head>
+<body>
+<h1>أيقونات التطبيق</h1>
+<div class="row" id="row"></div>
+<script>
+const F = 'Tajawal, Dubai, "Segoe UI", sans-serif';
+const GREEN = '#2f6f4f';
+
+function rr(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r);
+  c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r);
+  c.arcTo(x, y, x + w, y, r);
+  c.closePath();
+}
+
+function word(c, t, y, px, color, weight, max) {
+  c.direction = 'rtl';
+  c.textAlign = 'center';
+  c.textBaseline = 'alphabetic';
+  let s = px;
+  c.font = `${weight} ${s}px ${F}`;
+  while (c.measureText(t).width > max && s > 20) c.font = `${weight} ${(s -= 2)}px ${F}`;
+  c.fillStyle = color;
+  c.fillText(t, 256, y);
+}
+
+/** One icon on a 512-unit drawing board, scaled to `size` pixels. `round`: rounded square; `scale`/`lift`: the name smaller / higher inside. */
+function draw(size, { round, scale = 1, lift = 0 }) {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = size;
+  const c = cv.getContext('2d');
+  c.scale(size / 512, size / 512);
+  c.fillStyle = GREEN;
+  if (round) {
+    rr(c, 0, 0, 512, 512, 112);
+    c.fill();
+  } else {
+    c.fillRect(0, 0, 512, 512);
+  }
+  c.translate(256, 256 + lift);
+  c.scale(scale, scale);
+  c.translate(-256, -256);
+  word(c, 'آل', 190, 104, '#bfe3cf', 700, 300);
+  word(c, 'هرموش', 352, 192, '#ffffff', 900, 450);
+  c.fillStyle = '#e0b95b';
+  rr(c, 196, 408, 120, 8, 4);
+  c.fill();
+  c.fillStyle = '#bfe3cf';
+  for (const x of [206, 256, 306]) {
+    c.beginPath();
+    c.arc(x, 452, 10, 0, Math.PI * 2);
+    c.fill();
+  }
+  return cv;
+}
+
+const ICONS = [
+  ['icon-192.png', 192, { round: true }],
+  ['icon-512.png', 512, { round: true }],
+  ['icon-maskable-512.png', 512, { round: false, scale: 0.78, lift: -28 }],
+  ['apple-touch-icon.png', 180, { round: false, scale: 0.92 }],
+];
+
+async function main() {
+  try {
+    await Promise.all([document.fonts.load('900 100px Tajawal'), document.fonts.load('700 100px Tajawal')]);
+  } catch {
+    /* the system font is used then */
+  }
+  const row = document.getElementById('row');
+  const save = new URLSearchParams(location.search).get('save'); // a helper of the developer: send the files to a local server
+  for (const [name, size, opt] of ICONS) {
+    const cv = draw(size, opt);
+    const blob = await new Promise((r) => cv.toBlob(r, 'image/png'));
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = name;
+    link.textContent = `تنزيل ${name}`;
+    const fig = document.createElement('figure');
+    fig.append(cv, link);
+    row.append(fig);
+    if (save) await fetch(`/save/${name}`, { method: 'POST', body: blob });
+  }
+  document.title = 'done';
+}
+main();
+</script>
+</body>
+</html>
