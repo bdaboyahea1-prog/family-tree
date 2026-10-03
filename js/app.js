@@ -3414,8 +3414,39 @@ async function shareCard(p) {
   try {
     await navigator.share({ files, title: name, text });
   } catch (ex) {
-    if (ex?.name !== 'AbortError') toast('تعذّرت المشاركة', true); // closing the list is not an error
+    if (ex?.name !== 'AbortError') shareFallback(name, sheet, picture, ex); // closing the list is not an error
   }
+}
+
+/** The phone refused the share: each way is offered on its own (a new tap is a new permission to share) and the reason is shown. */
+function shareFallback(name, sheet, picture, ex) {
+  const can = (f) => !!navigator.canShare?.({ files: [f] });
+  const one = (file, label) =>
+    h('button', {
+      class: 'btn',
+      type: 'button',
+      text: label,
+      onclick: async () => {
+        try {
+          await navigator.share({ files: [file], title: name });
+          dlg.close();
+        } catch (e) {
+          if (e?.name !== 'AbortError') toast(`تعذّرت المشاركة (${e?.name || 'خطأ'})`, true);
+        }
+      },
+    });
+  const dlg = modal(
+    'تعذّرت المشاركة',
+    h(
+      'div',
+      { class: 'stack' },
+      h('p', { class: 'muted', text: 'لم يقبل الجوال إرسال الملفين معًا. جرّب كل واحد على حدة، أو نزّل ملف Excel على جهازك.' }),
+      can(sheet) && one(sheet, 'مشاركة ملف Excel فقط'),
+      picture && can(picture) && one(picture, 'مشاركة صورة البطاقة فقط'),
+      h('button', { class: 'btn', type: 'button', text: 'تنزيل ملف Excel على الجهاز', onclick: () => (downloadBlob(sheet.name, sheet), dlg.close()) }),
+      h('p', { class: 'muted small-note', dir: 'ltr', text: `${ex?.name || 'Error'}${ex?.message ? `: ${ex.message}` : ''}` }),
+    ),
+  );
 }
 
 /** Everyone above a person, from the first (oldest) ancestor down to them, on the father's and the mother's side. */
