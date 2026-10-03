@@ -3,7 +3,7 @@ import { fullName, lifeSpan, generationName, polar, SPOUSE_COLORS } from './tree
 import { genderIcon } from './gender.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
-const MIN_K = 0.2;
+const MIN_K = 0.08; // the smallest zoom: a big family can be seen whole, as a map, on a phone
 const FIT_MIN_K = MIN_K; // the first view shows the whole tree whenever "عرض الكل" could (it cannot go below the smallest zoom)
 const MAX_K = 2.5;
 
