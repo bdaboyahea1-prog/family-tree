@@ -877,3 +877,61 @@ dialog.modal::backdrop { background: rgba(10, 16, 13, 0.55); }
 .cta.start { justify-content: flex-start; }
 .track-code { display: grid; gap: 6px; margin: 10px 0; padding: 10px 12px; border: 1px dashed var(--accent); border-radius: 12px; background: var(--accent-soft); }
 .track-code code { display: block; padding: 6px 8px; border-radius: 8px; background: var(--surface); font-size: 14px; letter-spacing: 0.5px; word-break: break-all; user-select: all; }
+
+/* ---------- phones: only spacing and sizes change here; cards and colours stay as they are ---------- */
+/* The public page is a flex child with auto side margins, so it used to grow to the width of its widest row
+   (the blurred cards) and the phone zoomed the whole page out. Hold it to the screen instead. */
+.landing { width: 100%; box-sizing: border-box; min-width: 0; }
+.ghost-row { overflow: hidden; }
+.tree-mini { max-width: 100%; }
+
+@media (max-width: 480px) {
+  /* toolbar: a tidy grid of buttons (two rows when needed) instead of labels squeezed into each other */
+  .tb-actions {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); gap: 2px;
+    overflow: visible; padding-bottom: 0;
+  }
+  .tb-btn { min-height: 46px; padding: 4px 2px; font-size: 11px; white-space: nowrap; }
+  .tb-btn .icon { width: 19px; height: 19px; }
+  .topbar { padding-block: 6px; row-gap: 6px; }
+  .search input { min-height: 40px; font-size: 16px; } /* 16px keeps iPhone from zooming in on focus */
+
+  /* zoom buttons: smaller so they cover less of the tree */
+  .zoom { inset-inline-start: 8px; top: 8px; gap: 5px; }
+  .zoom-btn { width: 46px; padding: 5px 2px; font-size: 10px; border-radius: 10px; }
+  .zoom-btn .icon { width: 16px; height: 16px; }
+
+  /* branch legend: keep it off the home bar */
+  .legend { inset-inline-end: 8px; bottom: max(8px, env(safe-area-inset-bottom)); max-width: calc(100% - 16px); gap: 4px; }
+  .legend .chip { font-size: 11px; padding: 2px 8px; }
+
+  /* dialogs use the whole width of the screen */
+  dialog.modal { width: calc(100vw - 12px); max-height: calc(100dvh - 12px); border-radius: 16px; }
+
+  /* public page */
+  .landing { padding-inline: 12px; }
+  .land-top { padding: 10px 0; gap: 8px; }
+  .land-actions { width: 100%; }
+  .land-actions > * { flex: 1 1 0; justify-content: center; }
+  .landing .lead { font-size: 15.5px; }
+  .tcard { min-width: 0; }
+  .tcard.big { min-width: 0; max-width: 100%; }
+  .tree-mini-kids { gap: 28px 8px; margin-top: 40px; }
+  .cta > * { flex: 1 1 100%; }
+  .ghost-card { width: 52px; }
+}
+
+/* phone on its side: the screen is short, so keep the toolbar to one row that scrolls sideways */
+@media (max-height: 500px) and (orientation: landscape) {
+  .topbar { flex-wrap: nowrap; min-height: 0; padding-block: 4px; }
+  .tb-actions { order: 0; width: auto; flex: 1 1 auto; display: flex; overflow-x: auto; justify-content: flex-start; }
+  .tb-btn { flex: none; min-width: 52px; font-size: 10.5px; }
+  .search { flex: 0 1 200px; }
+  .zoom { grid-auto-flow: column; }
+  .panel { max-height: 80%; }
+}
+
+/* inputs: 16px on touch screens so iOS does not zoom the page when a field gets focus */
+@media (pointer: coarse) {
+  input, select, textarea { font-size: max(16px, 1em); }
+}
