@@ -35,11 +35,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <script>
-    // Somebody who is already signed in does not need the public text below: hide it at once, so that it does not flash
-    // for a moment before the app starts (visitors and search engines still get it).
-    try {
-      if (Object.keys(localStorage).some(function (k) { return /^sb-.*-auth-token$/.test(k); })) document.documentElement.classList.add('member');
-    } catch (e) {}
+    // With JavaScript the app replaces the public text below within a moment: until then only a loading line is shown, so that
+    // the text does not flash (a visitor without JavaScript, and a search engine that does not run scripts, still read the text).
+    // If the app has not started after 8 seconds (a bad connection) the text comes back.
+    document.documentElement.classList.add('js');
+    setTimeout(function () {
+      if (document.querySelector('.boot-loading')) document.documentElement.classList.remove('js');
+    }, 8000);
   </script>
 </head>
 <body>
@@ -67,7 +69,7 @@
       </section>
       <noscript><p>يحتاج هذا الموقع إلى تفعيل JavaScript لتسجيل الدخول وطلب الانضمام.</p></noscript>
     </main>
-    <div class="loading member-loading">جارٍ التحميل…</div>
+    <div class="loading boot-loading">جارٍ التحميل…</div>
   </div>
   <div id="toast" role="status" aria-live="polite"></div>
   <script type="module" src="js/app.js"></script>
