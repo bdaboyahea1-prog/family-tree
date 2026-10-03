@@ -379,14 +379,22 @@ export class Chart {
   // ----- view -----
 
   #apply() {
+    const zoomed = this._k !== this.k;
+    this._k = this.k;
     this.stage.style.transform = `translate(${this.tx}px, ${this.ty}px) scale(${this.k})`;
     this.#placeLabels();
-    // While the tree moves it is its own fast layer (smooth). A layer that stays promoted is drawn once, at the size it
-    // had, and a zoom would only stretch that picture (blurred, pixelated). So the hint is dropped when the movement stops,
-    // and the browser draws the cards and the lines again at the size they have now.
-    this.stage.style.willChange = 'transform';
     clearTimeout(this._still);
-    this._still = setTimeout(() => (this.stage.style.willChange = 'auto'), 450);
+    // A layer that the browser keeps ready for moving is drawn once, at the size it had, and a zoom only stretches that
+    // picture (blurred, pixelated). So:
+    //  * a tree of a few hundred cards is simply drawn again at every size while it is zoomed: sharp all along;
+    //  * a very big tree keeps the fast layer while it moves, and the hint is dropped when the movement stops (sharp again
+    //    after a short moment).
+    if (zoomed && (this.result?.cards.length || 0) <= 250) {
+      this.stage.style.willChange = 'auto';
+    } else {
+      this.stage.style.willChange = 'transform';
+      this._still = setTimeout(() => (this.stage.style.willChange = 'auto'), 300);
+    }
   }
 
   #animate() {
