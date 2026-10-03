@@ -100,11 +100,16 @@ function fakeTeaser(tree) {
   const roots = demoPersons.filter((p) => !p.father_id && !p.mother_id).map((p) => ({ p, n: lineSize(p.id) })).filter((r) => r.n > 1);
   roots.sort((a, b) => b.n - a.n || (b.p.gender === 'male') - (a.p.gender === 'male'));
   const year = (t) => (String(t || '').match(/[0-9]{4}/) || [null])[0];
-  const card = (p) => (!p.is_deceased && !show ? null : { name: [p.first_name, p.last_name].filter(Boolean).join(' '), gender: p.gender, birth_year: p.is_deceased && year(p.birth_date) ? Number(year(p.birth_date)) : null, death_year: p.is_deceased && year(p.death_date) ? Number(year(p.death_date)) : null, deceased: !!p.is_deceased });
+  // like the database (supabase/016): a child of the top ancestor is written with the father's name in the middle
+  const written = (p, dad) => {
+    const ends = dad && p.first_name !== dad && p.first_name.endsWith(' ' + dad);
+    return [p.first_name, dad && !ends ? dad : '', p.last_name].filter(Boolean).join(' ');
+  };
+  const card = (p, dad = null) => (!p.is_deceased && !show ? null : { name: written(p, dad), gender: p.gender, birth_year: p.is_deceased && year(p.birth_date) ? Number(year(p.birth_date)) : null, death_year: p.is_deceased && year(p.death_date) ? Number(year(p.death_date)) : null, deceased: !!p.is_deceased });
   const top = roots[0]?.p;
   const root = top ? card(top) : null;
   const kids = top ? demoPersons.filter((p) => lp(p) === top.id) : [];
-  const shown = root ? kids.map(card).filter(Boolean) : [];
+  const shown = root ? kids.map((c) => card(c, c.father_id === top.id ? top.first_name : null)).filter(Boolean) : [];
   return { tree_id: tree.id, tree_name: tree.name, people_count: demoPersons.length, root, children: shown.slice(0, 24), hidden_children: kids.length - Math.min(shown.length, 24) };
 }
 

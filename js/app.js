@@ -783,6 +783,67 @@ function teaserCardNode(card, big = false) {
   );
 }
 
+/**
+ * Curved lines from the top ancestor down to each of his children (the same curves as the tree), in the colour of the
+ * branch. Drawn behind the cards from where the cards really are, so it follows any width of the screen.
+ */
+function drawTeaserLines(mini) {
+  if (!mini?.isConnected) return;
+  const root = mini.querySelector('.tcard.big');
+  const kids = [...mini.querySelectorAll('.tree-mini-kids .tcard')];
+  let svg = mini.querySelector('svg.tm-lines');
+  if (!root || !kids.length) return svg?.remove();
+  if (!svg) {
+    svg = document.createElementNS(SVGNS, 'svg');
+    svg.setAttribute('class', 'tm-lines');
+    svg.setAttribute('aria-hidden', 'true');
+    mini.prepend(svg);
+  }
+  const box = mini.getBoundingClientRect();
+  const r = root.getBoundingClientRect();
+  const px = r.left + r.width / 2 - box.left;
+  const py = r.bottom - box.top;
+  svg.setAttribute('width', box.width);
+  svg.setAttribute('height', box.height);
+  svg.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
+  svg.replaceChildren(
+    ...kids.map((k, i) => {
+      const q = k.getBoundingClientRect();
+      const cx = q.left + q.width / 2 - box.left;
+      const cy = q.top - box.top;
+      const my = (py + cy) / 2;
+      const path = document.createElementNS(SVGNS, 'path');
+      path.setAttribute('d', `M${px.toFixed(1)} ${py.toFixed(1)}C${px.toFixed(1)} ${my.toFixed(1)} ${cx.toFixed(1)} ${my.toFixed(1)} ${cx.toFixed(1)} ${cy.toFixed(1)}`);
+      path.style.stroke = `var(--br${i % 8})`;
+      return path;
+    }),
+  );
+}
+
+/** The top ancestor and his first row, drawn into `box` (drawn again, in place, whenever the data changes). */
+function paintTeaser(box, teaser) {
+  box._ro?.disconnect();
+  if (!teaser?.root) return put(box);
+  const mini = h('div', { class: 'tree-mini' }, teaserCardNode(teaser.root, true), teaser.children.length > 0 && h('div', { class: 'tree-mini-kids' }, teaser.children.map((c) => teaserCardNode(c))));
+  put(
+    box,
+    h(
+      'section',
+      { class: 'teaser', 'aria-label': 'الجد الأكبر وأبناؤه' },
+      h('h2', { text: 'الجد الأكبر وأبناؤه' }),
+      mini,
+      teaser.hidden_children > 0 && h('p', { class: 'muted small-note', text: 'ويضم الصف الأول أفرادًا آخرين لا تُعرض أسماؤهم في الصفحة العامة.' }),
+    ),
+  );
+  requestAnimationFrame(() => drawTeaserLines(mini));
+  setTimeout(() => drawTeaserLines(mini), 60); // (a page that is not on the screen yet gets no animation frame)
+  setTimeout(() => drawTeaserLines(mini), 600); // after the fonts arrived
+  if (typeof ResizeObserver !== 'undefined') {
+    box._ro = new ResizeObserver(() => drawTeaserLines(mini)); // a new width of the screen, a font that arrived late
+    box._ro.observe(mini);
+  }
+}
+
 /** A big tree with nothing in it: blurred boxes only. The rest of the family is not on this page, not even blurred. */
 function lockedTree() {
   return h('div', { class: 'ghost', 'aria-hidden': 'true' }, [1, 3, 6, 9].map((n) => h('div', { class: 'ghost-row' }, Array.from({ length: n }, () => h('span', { class: 'ghost-card' })))));
@@ -821,15 +882,32 @@ async function showLanding() {
   const requestBtn = (cls = 'btn') => open && h('button', { class: cls, type: 'button', onclick: startJoin, text: 'اطلب الانضمام للعائلة' });
   const fullBtn = () => h('button', { class: 'btn primary', type: 'button', onclick: () => fullTreeNotice(open), text: 'اطّلع على كامل الشجرة' });
 
-  const top =
-    teaser?.root &&
-    h(
-      'section',
-      { class: 'teaser', 'aria-label': 'الجد الأكبر وأبناؤه' },
-      h('h2', { text: 'الجد الأكبر وأبناؤه' }),
-      h('div', { class: 'tree-mini' }, teaserCardNode(teaser.root, true), teaser.children.length > 0 && h('div', { class: 'tree-mini-kids' }, teaser.children.map((c) => teaserCardNode(c)))),
-      teaser.hidden_children > 0 && h('p', { class: 'muted small-note', text: 'ويضم الصف الأول أفرادًا آخرين لا تُعرض أسماؤهم في الصفحة العامة.' }),
-    );
+  const top = h('div', { class: 'teaser-box' });
+  const countNode = h('span', { class: 'muted' });
+  const paintCount = (t) => {
+    countNode.textContent = t?.people_count > 0 ? `تضم الشجرة ${peopleCountText(t.people_count)}` : '';
+    countNode.hidden = !countNode.textContent;
+  };
+  paintTeaser(top, teaser);
+  paintCount(teaser);
+  // what the page shows follows the database: asked again while the page stays open, and when the tab comes back to the front
+  let shown = JSON.stringify(teaser);
+  const refresh = async () => {
+    if (!top.isConnected) {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      return;
+    }
+    const t = await loadTeaser(true);
+    const now = JSON.stringify(t);
+    if (now === shown) return;
+    shown = now;
+    paintTeaser(top, t);
+    paintCount(t);
+  };
+  const onVisible = () => document.visibilityState === 'visible' && refresh();
+  const timer = setInterval(refresh, 120000);
+  document.addEventListener('visibilitychange', onVisible);
 
   mount(
     h(
@@ -869,7 +947,7 @@ async function showLanding() {
           { class: 'lock-overlay' },
           icon('lock'),
           h('strong', { text: 'باقي الشجرة لأعضاء العائلة فقط' }),
-          teaser?.people_count > 0 && h('span', { class: 'muted', text: `تضم الشجرة ${peopleCountText(teaser.people_count)}` }),
+          countNode,
           h('div', { class: 'cta' }, fullBtn(), requestBtn()),
         ),
       ),

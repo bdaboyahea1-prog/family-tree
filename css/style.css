@@ -820,7 +820,10 @@ dialog.modal::backdrop { background: rgba(10, 16, 13, 0.55); }
 .landing .lead { max-width: 640px; margin: 0 auto; color: var(--muted); font-size: 17px; line-height: 1.8; }
 .landing h2 { font-size: 20px; margin: 22px 0 10px; text-align: center; }
 .teaser { margin-top: 10px; text-align: center; }
-.tree-mini { display: grid; justify-items: center; gap: 0; }
+.tree-mini { position: relative; display: grid; justify-items: center; gap: 0; }
+.tm-lines { position: absolute; left: 0; top: 0; z-index: 0; overflow: visible; pointer-events: none; }
+.tm-lines path { fill: none; stroke-width: 2; stroke-linecap: round; }
+.tree-mini .tcard { position: relative; z-index: 1; }
 .tcard {
   display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; min-width: 150px; text-align: start;
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); --gender: var(--male);
@@ -832,10 +835,7 @@ dialog.modal::backdrop { background: rgba(10, 16, 13, 0.55); }
 .tcard .yr { font-size: 12px; color: var(--muted); }
 .tcard.big { padding: 12px 18px; min-width: 220px; }
 .tcard.big .nm { font-size: 18px; }
-.tree-mini-kids { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 26px; padding-top: 0; }
-.tree-mini-kids::before { content: ''; position: absolute; top: -26px; left: 50%; height: 26px; border-inline-start: 2px solid var(--edge); }
-.tree-mini-kids .tcard { position: relative; }
-.tree-mini-kids .tcard::after { content: ''; position: absolute; top: -14px; left: 50%; height: 14px; border-inline-start: 2px solid var(--edge); }
+.tree-mini-kids { display: flex; flex-wrap: wrap; justify-content: center; gap: 36px 12px; margin-top: 48px; padding-top: 0; }
 
 .locked { position: relative; margin: 22px 0 8px; min-height: 260px; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); }
 .ghost { display: grid; gap: 22px; padding: 22px 14px; filter: blur(7px); opacity: 0.55; pointer-events: none; user-select: none; }
