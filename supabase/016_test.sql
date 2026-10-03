@@ -34,6 +34,10 @@ insert into public.persons (id, tree_id, first_name, last_name, gender, father_i
   (public.u(6), public.u(900), 'سلمى', 'هرموش', 'female', null, public.u(1), true, '1930', '2000'),               -- hangs under him through the mother field: no father on record
   (public.u(7), public.u(900), 'يوسف', 'هرموش', 'male', public.u(1), null, false, '1950', null);                  -- living: stays hidden
 
+-- The real tree of this project may have its public page on, and the page shows the OLDEST public tree. Inside this
+-- test (everything is rolled back at the end) only the test tree may be public.
+update public.trees set public_page = false where id <> public.u(900);
+
 set local role anon;
 
 -- =====================================================================
