@@ -91,11 +91,18 @@ let ui = {};
 let photos = null;
 
 /** Light / dark: "auto" leaves it to the device (no data-theme attribute). */
+/** Is the screen dark right now: chosen "dark", or "auto" on a device that is set to dark. */
+const isDarkNow = () => state.theme === 'dark' || (state.theme === 'auto' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches);
+let syncThemeBtn = () => {}; // set when the toolbar is drawn: the sun / moon button
+
 function applyTheme() {
   if (state.theme === 'auto') delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = state.theme;
+  remember('ft.themecache', state.theme); // so the next page load starts in the right colours
+  syncThemeBtn();
 }
 applyTheme();
+window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => syncThemeBtn()); // "auto" follows the device
 
 // ====================================================================
 // small DOM helpers
@@ -142,6 +149,8 @@ const ICONS = {
   lock: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   printer: '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
   grid: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>',
+  sun: '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>',
+  moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
   heart: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
   userplus: '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>',
   parents: '<circle cx="12" cy="4" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M12 6v4"/><path d="M5 17v-2a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2"/>',
@@ -2032,8 +2041,8 @@ function loadLook(tree) {
 
 function applyLook() {
   Object.assign(state, resolveLook(state.lookDefault, isLookAdmin() ? null : state.lookMine));
-  remember('ft.themecache', state.theme); // (not 'ft.theme': that one is the choice an older version kept, read once by legacyLook)
-  applyTheme();
+  state.theme = cleanLook(state.lookMine).theme ?? 'auto'; // light / dark is a matter of the person's own eyes and device: never taken from the default
+  applyTheme(); // (remembers it in 'ft.themecache', not in 'ft.theme': that one is the choice an older version kept, read once by legacyLook)
 }
 
 async function saveDefaultLook() {
@@ -2060,7 +2069,7 @@ function saveMyLook() {
 
 /** A choice of the look is remembered where it belongs: the admin's for the whole tree, everybody else's for themselves. */
 function changeLook(key, value) {
-  if (isLookAdmin()) {
+  if (isLookAdmin() && key !== 'theme') {
     state.lookDefault = { ...state.lookDefault, [key]: value };
     clearTimeout(lookTimer);
     lookTimer = setTimeout(saveDefaultLook, 500);
@@ -2076,6 +2085,7 @@ function setLook(key, value, { focus = false } = {}) {
   state[key] = value;
   changeLook(key, value);
   applyTheme();
+  if (key === 'theme') return; // nothing to draw again: only the colours change
   if (focus) {
     rebuild();
     chart.focusTop();
@@ -2625,6 +2635,7 @@ function openSettings() {
       cardStyleChooser(),
       h('div', { class: 'sub-title', text: 'سمة الألوان' }),
       choiceGroup('سمة الألوان', [['auto', 'تلقائي (حسب الجهاز)'], ['light', 'فاتح'], ['dark', 'داكن']], state.theme, setTheme),
+      h('p', { class: 'muted small-note', text: 'هذا الخيار لك وحدك دائمًا (حتى للمدير). وفي الشريط العلوي زر الشمس والقمر للتبديل السريع بين الفاتح والداكن.' }),
       h('div', { class: 'sub-title', text: 'خيارات العرض' }),
       h(
         'ul',
@@ -2907,6 +2918,18 @@ function mountMain(treeName) {
   const zoomBtn = (name, label, onclick, title = label) =>
     h('button', { class: 'zoom-btn', type: 'button', title, 'aria-label': title, onclick }, icon(name), h('span', { class: 'lbl', text: label }));
 
+  // the sun / moon: a tap turns the colours light or dark (what it shows is what the screen is now)
+  const themeBtn = h('button', { class: 'tb-btn theme-btn', type: 'button', onclick: () => setTheme(isDarkNow() ? 'light' : 'dark') });
+  syncThemeBtn = () => {
+    const dark = isDarkNow();
+    const word = dark ? 'داكن' : 'فاتح';
+    const tip = dark ? 'الألوان الآن داكنة: اضغط لتصير فاتحة' : 'الألوان الآن فاتحة: اضغط لتصير داكنة';
+    themeBtn.title = tip;
+    themeBtn.setAttribute('aria-label', tip);
+    put(themeBtn, icon(dark ? 'moon' : 'sun'), h('span', { class: 'lbl', text: word }));
+  };
+  syncThemeBtn();
+
   const bellBadge = h('span', { class: 'badge-dot', hidden: true });
   const bell = h('button', { class: 'tb-btn bell', type: 'button', 'aria-label': 'صندوق الوارد', title: 'صندوق الوارد: طلبات الصلاحية وبلاغات الأخطاء', onclick: openInbox }, icon('bell'), h('span', { class: 'lbl', text: 'الوارد' }), bellBadge);
 
@@ -2954,6 +2977,7 @@ function mountMain(treeName) {
         (!DEMO || FAKE_BACKEND) && tbBtn('history', 'السجل', openHistory, 'سجل التعديلات'),
         tbBtn('printer', 'طباعة', printTree, 'طباعة الشجرة المعروضة'),
         tbBtn('grid', 'Excel', exportTreeXlsx, 'تصدير الشجرة المعروضة إلى Excel'),
+        themeBtn,
         tbBtn('settings', 'الإعدادات', openSettings),
         tbBtn('info', 'عن المصمم', openAbout, ABOUT_TITLE),
         tbBtn('logout', 'خروج', signOut, DEMO ? 'خروج من العرض التجريبي' : 'تسجيل الخروج'),
