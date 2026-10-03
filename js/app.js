@@ -3394,6 +3394,12 @@ async function cardImageBlob(p, name) {
   return new Promise((resolve, reject) => cv.toBlob((b) => (b ? resolve(b) : reject(new Error('no image'))), 'image/png'));
 }
 
+// Android's browsers (Chrome and the ones built on it) refuse to share an Excel file through the share list: the type is not on their
+// short list of file types (pictures, text, csv…). There the Excel file is saved on the phone and the picture goes to the share list.
+// Elsewhere (an iPhone) both are tried, and a refusal of the Excel file is remembered.
+const NO_XLSX_SHARE = 'ft.noXlsxShare';
+const xlsxShareable = () => safeGet(NO_XLSX_SHARE) !== '1' && !/android/i.test(navigator.userAgent);
+
 /**
  * Share one card through the share list of the phone: the Excel file of the person (the same file as «تصدير بياناته إلى Excel»)
  * and the picture of the card. If the phone takes only one file, the Excel file goes alone; with no sharing at all it is downloaded.
@@ -3409,8 +3415,19 @@ async function shareCard(p) {
   } catch {
     /* no picture: the Excel file goes alone */
   }
-  const files = [picture && [sheet, picture], [sheet]].filter(Boolean).find((f) => navigator.canShare?.({ files: f }));
-  if (!navigator.share || !files) return exportPersonXlsx(p);
+  const canShareFiles = (f) => !!navigator.canShare?.({ files: f });
+  const files = xlsxShareable() ? [picture && [sheet, picture], [sheet]].filter(Boolean).find(canShareFiles) : null;
+  if (!files) {
+    // the Excel file is saved on the phone, and the picture goes to the share list
+    downloadBlob(xl.name, xl.blob);
+    if (!navigator.share || !picture || !canShareFiles([picture])) return toast('تم تنزيل ملف Excel');
+    try {
+      await navigator.share({ files: [picture], title: name, text });
+    } catch (ex) {
+      if (ex?.name !== 'AbortError') toast(`تعذّرت المشاركة (${ex?.name || 'خطأ'})`, true);
+    }
+    return toast('نُزّل ملف Excel في جهازك (مجلد التنزيلات): أرفقه من هناك عند الإرسال');
+  }
   try {
     await navigator.share({ files, title: name, text });
   } catch (ex) {
@@ -3431,6 +3448,7 @@ function shareFallback(name, sheet, picture, ex) {
           await navigator.share({ files: [file], title: name });
           dlg.close();
         } catch (e) {
+          if (e?.name === 'NotAllowedError' && file === sheet) remember(NO_XLSX_SHARE, '1'); // this phone does not share Excel files: do not try again
           if (e?.name !== 'AbortError') toast(`تعذّرت المشاركة (${e?.name || 'خطأ'})`, true);
         }
       },
@@ -4104,7 +4122,7 @@ function renderPanel() {
         (father || mother) && h('button', { class: 'btn', type: 'button', onclick: () => openAncestors(p), text: 'عرض الأجداد' }),
         h('button', { class: 'btn', type: 'button', onclick: () => exportPersonXlsx(p), text: 'تصدير بياناته إلى Excel' }),
       ),
-      h('button', { class: 'btn only-touch', type: 'button', onclick: () => shareCard(p), text: 'مشاركة: ملف Excel + صورة البطاقة (واتساب وغيره)' }),
+      h('button', { class: 'btn only-touch', type: 'button', onclick: () => shareCard(p), text: xlsxShareable() ? 'مشاركة: ملف Excel + صورة البطاقة (واتساب وغيره)' : 'مشاركة صورة البطاقة + تنزيل ملف Excel' }),
       canManage && h('button', { class: 'btn', type: 'button', onclick: () => openBranchAccess(p), text: 'دعوة وصلاحيات هذا الفرع' }),
       hasBackend() && state.role === 'viewer' && !perms.isBranchHead(p) && h('button', { class: 'btn', type: 'button', onclick: () => openRequestDialog(p), text: 'طلب صلاحية على هذا الفرع' }),
       hasBackend() && h('button', { class: 'btn', type: 'button', onclick: () => openReportDialog(p), text: 'ابلغ عن خطأ بالمعلومات' }),
