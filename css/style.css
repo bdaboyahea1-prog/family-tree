@@ -198,7 +198,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   background-size: 24px 24px;
 }
 .viewport:active { cursor: grabbing; }
-.stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+.stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; } /* will-change is added by chart.js only while the tree moves: kept on, it freezes the picture at its first size and a zoom looks pixelated */
 .stage.anim { transition: transform 0.35s ease; }
 .edges { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
 .edges path { fill: none; stroke: var(--edge); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
