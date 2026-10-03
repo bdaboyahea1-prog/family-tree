@@ -28,7 +28,9 @@ import { demoPersons, demoMarriages, makeFakeSb, demoAbout } from './demo.js';
 //   #/demo-edit    an editor: shows the editing forms
 //   #/demo-branch  a reader who was given the branch of "عبدالله" with add + edit + grant
 //   #/demo-admin   the admin: sharing / invitation / branch dialogs run against a fake in-memory backend
-const DEMO = location.hash.startsWith('#/demo');
+// #/offline: the copy of the tree kept on this device, opened with no connection (read only, through the same screens as the sample)
+const OFFLINE = location.hash === '#/offline';
+const DEMO = location.hash.startsWith('#/demo') || OFFLINE;
 const DEMO_ROLE = { '#/demo-edit': 'editor', '#/demo-admin': 'admin' }[location.hash] || 'viewer';
 const DEMO_GRANTS = new Map(location.hash === '#/demo-branch' ? [['a', { add: true, edit: true, delete: false, grant: true }]] : []);
 const DEMO_LANDING = location.hash === '#/demo-landing'; // the front page with a make-believe public tree and visitor
@@ -78,6 +80,7 @@ const state = {
   theme: ['auto', 'light', 'dark'].includes(safeGet('ft.themecache') ?? safeGet('ft.theme')) ? safeGet('ft.themecache') ?? safeGet('ft.theme') : 'auto', // remembered only so a page load does not flash the wrong colours
   lookDefault: {}, // the choices of the tree admin (trees.default_look)
   lookMine: {}, // my own choices (profiles.look)
+  offlineAt: null, // when the copy that is open without a connection was made
   quickTable: safeGet('ft.quick') === '1', // the quick-add table next to a card (off until switched on)
   quickFor: null, // the person the quick-add table is open for
   quickMode: 'cards', // 'cards' = the table adds cards; 'info' = it writes the information table of a woman
@@ -154,6 +157,7 @@ const ICONS = {
   grid: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>',
   menu: '<line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>',
   share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>',
+  refresh: '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
   sun: '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>',
   moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
   heart: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
@@ -1470,7 +1474,10 @@ async function boot() {
     }
     if (error) throw error;
     state.memberships = (ms || []).filter((m) => m.tree);
-    if (!state.memberships.length) return showStart(notice);
+    if (!state.memberships.length) {
+      dropSnapshot(); // no longer a member of any tree: nothing of it stays on this device
+      return showStart(notice);
+    }
 
     const last = localStorage.getItem('ft.tree');
     const m = state.memberships.find((x) => x.tree.id === last) || state.memberships[0];
@@ -1478,6 +1485,7 @@ async function boot() {
     if (notice) toast(notice, true);
     else if (code) toast('تم انضمامك إلى الشجرة');
   } catch (ex) {
+    if (hasSnapshot()) return goOffline(); // the server cannot be reached: the copy kept on this device
     mount(h('div', { class: 'center' }, h('div', { class: 'auth-card' }, brand(), h('p', { class: 'error', text: friendly(ex) }), h('button', { class: 'btn block', onclick: () => location.reload(), text: 'إعادة المحاولة' }))));
   }
 }
@@ -1487,6 +1495,7 @@ async function signOut() {
     history.replaceState(null, '', location.pathname);
     return location.reload();
   }
+  await dropSnapshot(); // a copy of the family must not stay on a device whose owner signed out
   await sb.auth.signOut();
 }
 
@@ -1524,7 +1533,101 @@ async function fetchAll(table, treeId) {
   return out;
 }
 
+// ---------- reading without a connection ----------
+// After a successful load the tree is kept on this device (IndexedDB). With no connection the app opens that copy, for reading
+// only. Signing out deletes it, and it is never opened without the sign-in of this browser.
+
+const OFFLINE_KEY = 'ft.snap';
+const idb = {
+  open: () =>
+    new Promise((resolve, reject) => {
+      const r = indexedDB.open('family-tree', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    }),
+  async run(mode, fn) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const q = fn(db.transaction('kv', mode).objectStore('kv'));
+      q.onsuccess = () => resolve(q.result);
+      q.onerror = () => reject(q.error);
+    });
+  },
+  get: (k) => idb.run('readonly', (s) => s.get(k)),
+  set: (k, v) => idb.run('readwrite', (s) => s.put(v, k)),
+  del: (k) => idb.run('readwrite', (s) => s.delete(k)),
+};
+let offlineSnap = null;
+const offlineWanted = () => safeGet('ft.offline') !== '0'; // the person can switch the copy off (settings)
+/** Who is signed in in this browser (read from the stored session; nothing is asked of the network). */
+function authUserId() {
+  try {
+    for (const k of Object.keys(localStorage)) if (/^sb-.*-auth-token$/.test(k)) return JSON.parse(localStorage.getItem(k))?.user?.id ?? null;
+  } catch {
+    /* an unreadable session is no session */
+  }
+  return null;
+}
+/** A copy exists and it is the copy of the person signed in here (the flag holds that person's id). */
+const hasSnapshot = () => {
+  const id = safeGet(OFFLINE_KEY);
+  return !!id && id === authUserId();
+};
+const goOffline = () => {
+  location.hash = '#/offline';
+  location.reload();
+};
+const leaveOffline = () => {
+  history.replaceState(null, '', location.pathname + location.search);
+  location.reload();
+};
+async function dropSnapshot() {
+  remember(OFFLINE_KEY, '');
+  try {
+    await idb.del('snapshot');
+  } catch {
+    /* nothing was kept */
+  }
+}
+
+async function saveSnapshot() {
+  if (DEMO || !offlineWanted() || !state.user || !state.treeId || !state.persons.size) return;
+  try {
+    const t = currentTree();
+    await idb.set('snapshot', {
+      v: 1,
+      savedAt: Date.now(),
+      userId: state.user.id,
+      displayName: state.profile?.display_name || null,
+      treeId: state.treeId,
+      tree: { id: t.id, name: t.name, about: t.about ?? null, female_card_mode: t.female_card_mode ?? 'full', default_look: t.default_look ?? null },
+      lookMine: state.lookMine,
+      persons: [...state.persons.values()],
+      marriages: [...state.marriages.values()],
+      info: [...state.info.values()].flat(),
+    });
+    remember(OFFLINE_KEY, state.user.id);
+  } catch {
+    /* no room, or storage blocked: there is simply no offline copy */
+  }
+}
+let snapTimer = null;
+const scheduleSnapshot = () => {
+  if (DEMO) return;
+  clearTimeout(snapTimer);
+  snapTimer = setTimeout(saveSnapshot, 15000); // a burst of changes (and every fold or unfold of the tree) is kept once
+};
+document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && !DEMO && saveSnapshot());
+
 async function loadTreeData() {
+  if (OFFLINE) {
+    state.persons = new Map(offlineSnap.persons.map((p) => [p.id, p]));
+    state.marriages = new Map(offlineSnap.marriages.map((m) => [m.id, m]));
+    state.info = new Map();
+    for (const r of offlineSnap.info || []) setInfo(r);
+    return;
+  }
   if (DEMO) {
     state.persons = new Map(demoPersons.map((p) => [p.id, p]));
     state.marriages = new Map(demoMarriages.map((m) => [m.id, m]));
@@ -1583,12 +1686,14 @@ async function openTree(id) {
   try {
     await Promise.all([loadTreeData(), loadGrants()]);
   } catch (ex) {
+    if (!DEMO && hasSnapshot()) return goOffline(); // the tree cannot be loaded now: the copy kept on this device
     toast(friendly(ex), true);
     ui.loading.textContent = 'تعذّر تحميل الشجرة';
     return;
   }
   ui.loading.remove();
   if (!DEMO) subscribe();
+  if (!DEMO) saveSnapshot();
 
   rebuild();
   refreshInbox();
@@ -1658,6 +1763,7 @@ function rebuild() {
   if (state.selectedId && !idx.byId.has(state.selectedId)) state.selectedId = null;
   chart.configure({ bands: state.bands && state.design === 'classic', colors: state.branchColors, years: state.showYears, curves: state.curves, actions: state.cardButtons, cardStyle: state.cardStyle, wifeColors: state.wifeColors && state.showFemales });
   chart.render(state.layout, state.selectedId);
+  scheduleSnapshot();
   syncPhotos();
   ui.empty.hidden = idx.list.length > 0;
   ui.zoom.hidden = idx.list.length === 0;
@@ -2735,6 +2841,7 @@ function openSettings() {
       h('p', { class: 'muted small-note', text: 'قوائم المحافظات والمدن بلغة كل بلد: العربية للدول العربية، والتركية لتركيا، والألمانية لألمانيا، وهكذا. وما لا يتوفر بلغته الأصلية فبالإنجليزية، من قاعدة بيانات مفتوحة «countries-states-cities-database» بترخيص ODbL.' }),
 
       installSection(),
+      !DEMO && offlineSection(), // a copy only exists for the real tree
 
       h('div', { class: 'section-title', text: 'النسخ الاحتياطي' }),
       h('p', { class: 'muted', text: 'نزّل نسخة كاملة من الشجرة متى شئت (الأشخاص والزيجات، دون الصور). ملف JSON يعيده هذا البرنامج بدقة، وملف GEDCOM تفهمه برامج الأنساب الأخرى.' }),
@@ -2886,13 +2993,13 @@ function openMore() {
       item(dark ? 'moon' : 'sun', dark ? 'الألوان داكنة: اجعلها فاتحة' : 'الألوان فاتحة: اجعلها داكنة', () => setTheme(dark ? 'light' : 'dark')),
       item('settings', 'الإعدادات', openSettings),
       item('info', 'عن المصمم', openAbout),
-      item('logout', 'خروج', signOut),
+      OFFLINE ? item('refresh', 'إعادة الاتصال', leaveOffline) : item('logout', 'خروج', signOut),
     ),
   );
 }
 
 function mountMain(treeName) {
-  const select =
+  const treePicker =
     state.memberships.length > 1
       ? h(
           'select',
@@ -3008,10 +3115,17 @@ function mountMain(treeName) {
   quick.hidden = true;
 
   mount(
+    OFFLINE &&
+      h(
+        'div',
+        { class: 'offline-banner', role: 'status' },
+        h('span', { text: `نسخة محفوظة دون اتصال، للقراءة فقط · آخر تحديث: ${fmtDate(new Date(state.offlineAt).toISOString())}` }),
+        h('button', { class: 'btn small', type: 'button', onclick: leaveOffline, text: 'إعادة الاتصال' }),
+      ),
     h(
       'header',
       { class: 'topbar' },
-      h('div', { class: 'brand' }, h('span', { class: 'brand-mark' }, icon('tree')), select),
+      h('div', { class: 'brand' }, h('span', { class: 'brand-mark' }, icon('tree')), treePicker),
       h('div', { class: 'search' }, icon('search'), search_, results),
       h('div', { class: 'spacer' }),
       h(
@@ -3026,7 +3140,7 @@ function mountMain(treeName) {
         themeBtn,
         tbBtn('settings', 'الإعدادات', openSettings),
         tbBtn('info', 'عن المصمم', openAbout, ABOUT_TITLE),
-        tbBtn('logout', 'خروج', signOut, DEMO ? 'خروج من العرض التجريبي' : 'تسجيل الخروج'),
+        OFFLINE ? tbBtn('refresh', 'اتصال', leaveOffline, 'إعادة الاتصال والعودة إلى الشجرة الكاملة') : tbBtn('logout', 'خروج', signOut, DEMO ? 'خروج من العرض التجريبي' : 'تسجيل الخروج'),
       ),
     ),
     h('div', { class: 'main' }, viewport, zoom, empty, quick, panel),
@@ -3866,6 +3980,7 @@ function localUpsert(table, row) {
 }
 
 function assertLive() {
+  if (OFFLINE) throw new Error('أنت تتصفح نسخة محفوظة دون اتصال: لا يمكن التعديل الآن.');
   if (DEMO) throw new Error('هذه نسخة تجريبية للعرض فقط');
 }
 
@@ -4953,6 +5068,24 @@ async function renderHistory(body, filter) {
 // ====================================================================
 
 async function init() {
+  if (OFFLINE) {
+    try {
+      offlineSnap = await idb.get('snapshot');
+    } catch {
+      offlineSnap = null;
+    }
+    if (!offlineSnap || offlineSnap.userId !== authUserId()) return leaveOffline(); // no copy, or not this person's: the normal start
+    state.user = { id: offlineSnap.userId };
+    state.profile = { display_name: offlineSnap.displayName, look: offlineSnap.lookMine };
+    state.offlineAt = offlineSnap.savedAt;
+    state.memberships = [{ role: 'viewer', tree: offlineSnap.tree }];
+    window.addEventListener('online', () => {
+      toast('عاد الاتصال، جارٍ فتح الشجرة الكاملة…');
+      setTimeout(leaveOffline, 800);
+    });
+    await openTree(offlineSnap.treeId);
+    return;
+  }
   if (DEMO_LANDING) {
     sb = makeFakeSb('u9', { publicPage: true }); // a make-believe public tree, a visitor who may ask to join
     return showLanding();
@@ -4965,6 +5098,7 @@ async function init() {
     return;
   }
 
+  if (!navigator.onLine && hasSnapshot()) return goOffline(); // no connection and a copy on this device: open it
   readHash();
   window.addEventListener('hashchange', () => {
     if (readHash() && state.user) boot();
@@ -4976,6 +5110,7 @@ async function init() {
   try {
     ({ createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'));
   } catch {
+    if (hasSnapshot()) return goOffline(); // the connection is down: the copy kept on this device
     mount(h('div', { class: 'center' }, h('div', { class: 'auth-card' }, brand(), h('p', { class: 'error', text: 'تعذّر الاتصال بالإنترنت' }), h('button', { class: 'btn block', onclick: () => location.reload(), text: 'إعادة المحاولة' }))));
     return;
   }
@@ -4989,6 +5124,7 @@ async function init() {
         setTimeout(boot, 0);
       }
     } else if (state.user) {
+      dropSnapshot();
       state.user = null;
       state.profile = null;
       state.memberships = [];
@@ -5013,6 +5149,27 @@ window.addEventListener('appinstalled', () => (installOffer = null));
 
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+
+/** The copy of the tree kept on this device for reading without a connection: on by default, and the person can turn it off. */
+function offlineSection() {
+  return [
+    h('div', { class: 'section-title', text: 'القراءة دون اتصال' }),
+    h(
+      'ul',
+      { class: 'settings' },
+      settingRow({
+        title: 'حفظ نسخة من الشجرة على هذا الجهاز',
+        desc: 'عند انقطاع الإنترنت تفتح الشجرة من هذه النسخة للقراءة فقط (دون الصور). تبقى على جهازك وحده ولا تُرسل لأحد، وتُحذف عند تسجيل الخروج أو عند إيقاف هذا الخيار.',
+        checked: offlineWanted(),
+        onChange: (on) => {
+          remember('ft.offline', on ? '1' : '0');
+          if (on) saveSnapshot();
+          else dropSnapshot();
+        },
+      }),
+    ),
+  ];
 }
 
 /** The settings block that helps to put the site on the phone like an app. */
