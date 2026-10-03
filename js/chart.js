@@ -63,6 +63,7 @@ export function makeCard(p, { photo = null, actions = false, canAdd = false, nam
   const nm = el('div', 'nm', shown);
   nm.title = shown; // a long name may be cut on the card: the whole of it is here
   txt.append(nm);
+  txt.append(el('div', 'nm-far', p.first_name || shown)); // shown instead of the long name when the tree is zoomed far out (phone, css)
   if (p.nickname) txt.append(el('div', 'nick', p.nickname)); // the name he / she is known by, right under the name
   txt.append(el('div', 'yr', lifeSpan(p))); // empty when nothing is known: some looks still draw the strip
   node.append(avatar, txt);
@@ -383,6 +384,8 @@ export class Chart {
     const zoomed = this._k !== this.k;
     this._k = this.k;
     this.stage.style.transform = `translate(${this.tx}px, ${this.ty}px) scale(${this.k})`;
+    this.stage.style.setProperty('--k', this.k.toFixed(3));
+    this.stage.classList.toggle('far', this.k < 0.45); // css (phones): far out, a card shows only a big first name
     this.#placeLabels();
     clearTimeout(this._still);
     // A layer that the browser keeps ready for moving is drawn once, at the size it had, and a zoom only stretches that
@@ -469,12 +472,12 @@ export class Chart {
     this.#apply();
   }
 
-  centerOn(id, { insetBottom = 0, animate = true } = {}) {
+  centerOn(id, { insetBottom = 0, animate = true, zoom = null } = {}) {
     const c = this.#card0(id);
     if (!c) return;
     const vw = this.vp.clientWidth;
     const vh = this.vp.clientHeight - insetBottom;
-    this.k = Math.max(this.k, 0.75);
+    this.k = zoom ?? Math.max(this.k, 0.75);
     this.tx = vw / 2 - (c.x + c.w / 2) * this.k;
     this.ty = vh / 2 - (c.y + c.h / 2) * this.k;
     if (animate) this.#animate();
@@ -580,7 +583,17 @@ export class Chart {
       if (!pts.has(e.pointerId)) return;
       pts.delete(e.pointerId);
       if (pts.size === 0) {
-        if (start && !start.moved && e.type === 'pointerup') this.#tap(start.target);
+        if (start && !start.moved && e.type === 'pointerup') {
+          // two quick touches on the same spot: zoom in on the card (or the spot), and again to see the whole tree
+          const prev = this._lastTap;
+          if (e.pointerType !== 'mouse' && prev && Date.now() - prev.t < 320 && Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < 30) {
+            this._lastTap = null;
+            this.#doubleTap(start.target, e);
+          } else {
+            this._lastTap = { t: Date.now(), x: e.clientX, y: e.clientY };
+            this.#tap(start.target);
+          }
+        }
         start = null;
         pinch = null;
       } else if (pts.size === 1) {
@@ -602,6 +615,19 @@ export class Chart {
       },
       { passive: false },
     );
+  }
+
+  #doubleTap(target, e) {
+    if (!target?.closest || target.closest('.cbtn, .tg')) return;
+    if (this.k >= 0.9) return this.fit(); // already close: back to the whole tree
+    const card = target.closest('.card, .sector');
+    if (card) {
+      this.handlers.onDoubleTap ? this.handlers.onDoubleTap(card.dataset.id) : this.centerOn(card.dataset.id, { zoom: 1 });
+    } else {
+      const r = this.vp.getBoundingClientRect();
+      this.#zoomAt(e.clientX - r.left, e.clientY - r.top, 2);
+      this.#animate();
+    }
   }
 
   #tap(target) {
