@@ -1924,12 +1924,13 @@ function select(id) {
   state.selectedId = id;
 }
 
-/** A chip of the branch legend: that person's card is chosen and their whole branch is brought into view. */
+/** A chip of the branch legend: the view goes to that person and their whole branch. No card is opened and nothing is chosen. */
 function goToBranch(id) {
-  select(id);
-  revealPerson(id);
-  rebuild();
-  chart.fitBranch(id, { insetBottom: sheetInset() });
+  if (!chart.has(id)) {
+    revealPerson(id);
+    rebuild();
+  }
+  chart.fitBranch(id, { insetBottom: sheetInset() }); // (when a card is open on a phone, its sheet is kept clear)
 }
 
 function focusPerson(id) {
