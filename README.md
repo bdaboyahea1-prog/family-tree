@@ -34,7 +34,7 @@ for t in tests/*.test.mjs; do node "$t"; done
 
 شغّل الملفات في **SQL Editor** بهذا الترتيب مرة واحدة لكل مشروع جديد:
 
-`supabase/schema.sql` ثم `002_branch_permissions.sql` ثم `003_branch_levels_and_email_invites.sql` ثم `004_undo_and_photos.sql` ثم `005_fix_revert.sql` ثم `006_places.sql` ثم `007_requests_reports_comments.sql` ثم `008_contacts_and_about.sql` ثم `009_female_cards.sql` ثم `010_public_page_and_join.sql` ثم `011_join_without_account.sql` ثم `012_optional_fields.sql` ثم `013_open_invites.sql` ثم `014_nickname.sql` ثم `015_looks.sql` ثم `016_public_triple_name.sql` ثم `017_owner.sql` (مالك الشجرة: لا يُزال ولا يُنزَّل مستواه، ويُسلِّم الشجرة بـ `transfer_ownership`).
+`supabase/schema.sql` ثم `002_branch_permissions.sql` ثم `003_branch_levels_and_email_invites.sql` ثم `004_undo_and_photos.sql` ثم `005_fix_revert.sql` ثم `006_places.sql` ثم `007_requests_reports_comments.sql` ثم `008_contacts_and_about.sql` ثم `009_female_cards.sql` ثم `010_public_page_and_join.sql` ثم `011_join_without_account.sql` ثم `012_optional_fields.sql` ثم `013_open_invites.sql` ثم `014_nickname.sql` ثم `015_looks.sql` ثم `016_public_triple_name.sql` ثم `017_owner.sql` (مالك الشجرة: لا يُزال ولا يُنزَّل مستواه، ويُسلِّم الشجرة بـ `transfer_ownership`) ثم `018_chat.sql` (غرفة الدردشة العائلية: نص فقط، لكل أعضاء الشجرة، 10 رسائل في الدقيقة كحد أقصى، يحذف الكاتب رسالته والمدير يحذف أي رسالة).
 
 ملفات `*_test.sql` اختبارات ذاتية: تنشئ بيانات وهمية وتعرض تقريرًا ثم تتراجع عن كل شيء (الخطأ الأحمر في آخرها متوقع). و`diag_history.sql` استعلام قراءة فقط لتشخيص السجل.
 

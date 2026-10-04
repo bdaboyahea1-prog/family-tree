@@ -148,6 +148,12 @@ export function makeFakeSb(userId = 'u1', opts = {}) {
     branch_grants: [
       { tree_id: 'demo', user_id: 'u2', person_id: 'a', can_add: true, can_edit: true, can_delete: false, can_grant: true, created_by: 'u1' },
     ],
+    tree_messages: [
+      { id: 'm1', tree_id: 'demo', user_id: 'u2', body: 'السلام عليكم ورحمة الله، مرحبًا بكم في دردشة العائلة.', created_at: new Date(Date.now() - 26 * 3600e3).toISOString() },
+      { id: 'm2', tree_id: 'demo', user_id: 'u3', body: 'وعليكم السلام! جزاكم الله خيرًا على هذه الشجرة.', created_at: new Date(Date.now() - 25 * 3600e3).toISOString() },
+      { id: 'm3', tree_id: 'demo', user_id: 'u4', body: 'من يعرف تاريخ ميلاد جدّنا الأكبر بالتحديد؟ أكتب له في بطاقته.', created_at: new Date(Date.now() - 3 * 3600e3).toISOString() },
+      { id: 'm4', tree_id: 'demo', user_id: 'u2', body: 'سأسأل والدي وأكتب لكم في تعليق البطاقة.', created_at: new Date(Date.now() - 2 * 3600e3).toISOString() },
+    ],
     card_comments: [
       { id: 'c1', tree_id: 'demo', person_id: 'a', user_id: 'u2', body: 'وُلد جدي في حمص قبل أن ينتقل إلى دمشق.', created_at: new Date(Date.now() - 5 * 3600e3).toISOString() },
       { id: 'c2', tree_id: 'demo', person_id: 'a', user_id: 'u3', body: 'عندي صورة قديمة له، سأرفعها قريبًا.', created_at: new Date(Date.now() - 3600e3).toISOString() },
@@ -173,7 +179,7 @@ export function makeFakeSb(userId = 'u1', opts = {}) {
   };
   const query = (table) => {
     const s = { op: 'select', filters: [], patch: null, sel: false, single: false };
-    const match = (r) => s.filters.every(([c, v]) => r[c] === v);
+    const match = (r) => s.filters.every(([c, v, op]) => (op === 'lt' ? String(r[c]) < String(v) : r[c] === v));
     const copy = (rows) => rows.map((r) => ({ ...r }));
     const run = () => {
       const rows = (db[table] = db[table] || []);
@@ -201,6 +207,7 @@ export function makeFakeSb(userId = 'u1', opts = {}) {
       order: () => api,
       limit: () => api,
       eq: (c, v) => (s.filters.push([c, v]), api),
+      lt: (c, v) => (s.filters.push([c, v, 'lt']), api),
       insert: (row) => ((s.op = 'insert'), (s.patch = row), api),
       update: (p) => ((s.op = 'update'), (s.patch = p), api),
       delete: () => ((s.op = 'delete'), api),

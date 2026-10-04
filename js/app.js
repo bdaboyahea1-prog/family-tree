@@ -155,6 +155,7 @@ const ICONS = {
   lock: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   printer: '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
   grid: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>',
+  chat: '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
   phone: '<rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>',
   menu: '<line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>',
   share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>',
@@ -319,6 +320,8 @@ function friendly(err) {
     [/access_requests_one_pending/i, 'لديك طلب قائم على هذه البطاقة بانتظار القرار'],
     [/(column|relation|table).*nickname.*(does not exist|schema cache)|could not find the .*nickname/i, 'لم تُنفَّذ بعدُ خطوة قاعدة البيانات 014 (اللقب المشتهر به). نفّذها من SQL Editor ثم أعد المحاولة.'],
     [/(column|relation|table).*(default_look|\blook\b).*(does not exist|schema cache)|could not find the .*(default_look|look)/i, 'لم تُنفَّذ بعدُ خطوة قاعدة البيانات 015 (الشكل الافتراضي). نفّذها من SQL Editor ثم أعد المحاولة.'],
+    [/too many messages/i, 'رسائل كثيرة في وقت قصير، انتظر دقيقة ثم أرسل.'],
+    [/(column|relation|table).*tree_messages.*(does not exist|schema cache)|could not find the .*tree_messages/i, 'الدردشة تحتاج خطوة قاعدة البيانات 018. نفّذها من SQL Editor ثم أعد المحاولة.'],
     [/owner of a tree cannot be (removed|demoted)/i, 'مالك الشجرة محميّ: لا يمكن إزالته ولا إنزال مستواه.'],
     [/persons_nickname_check/i, 'اللقب المشتهر به أطول من المسموح (100 حرف)'],
     [/persons_phone_check/i, 'رقم الهاتف غير صالح: أرقام فقط، ويجوز + في البداية ومسافات وأقواس وشرطات'],
@@ -1616,6 +1619,11 @@ async function signOut() {
 
 function teardownTree() {
   syncPanelLayer(false);
+  if (state.chatChannel) sb.removeChannel(state.chatChannel);
+  state.chatChannel = null;
+  state.chat = null;
+  state.chatNamesAt = 0;
+  chatView = null;
   if (state.channel) sb.removeChannel(state.channel);
   state.channel = null;
   chart = null;
@@ -1813,6 +1821,7 @@ async function openTree(id) {
 
   rebuild();
   refreshInbox();
+  loadChat().catch(() => {}); // the room: its badge appears when it arrives
   state.inboxTimer = setInterval(refreshInbox, 120000);
   const saved = localStorage.getItem('ft.root.' + id);
   if (saved && saved !== state.rootId && state.index.byId.has(saved)) setRoot(saved, { focus: false });
@@ -3206,6 +3215,8 @@ function mountMain(treeName) {
   };
   syncThemeBtn();
 
+  const chatBadges = [h('span', { class: 'badge-dot', hidden: true }), h('span', { class: 'badge-dot', hidden: true })]; // the toolbar's, the bar's
+  const chatOn = hasBackend() && !OFFLINE;
   const bellBadge = h('span', { class: 'badge-dot', hidden: true });
   const bell = h('button', { class: 'tb-btn bell', type: 'button', 'aria-label': 'صندوق الوارد', title: 'صندوق الوارد: طلبات الصلاحية وبلاغات الأخطاء', onclick: openInbox }, icon('bell'), h('span', { class: 'lbl', text: 'الوارد' }), bellBadge);
 
@@ -3222,6 +3233,7 @@ function mountMain(treeName) {
       chart.focusTop();
     }),
     navBtn('filter', 'بحث', openSearchPage),
+    chatOn && navBtn('chat', 'الدردشة', openChat, chatBadges[1]),
     (!DEMO || FAKE_BACKEND) && navBtn('users', 'المشاركة', openShare),
     hasBackend() && navBtn('bell', 'الوارد', openInbox, navBadge),
     navBtn('menu', 'المزيد', openMore),
@@ -3275,6 +3287,7 @@ function mountMain(treeName) {
         { class: 'tb-actions' },
         hasBackend() && bell,
         tbBtn('filter', 'بحث وتصفية', openSearchPage, 'بحث وتصفية (بالاسم أو البلد أو المدينة)'),
+        chatOn && h('button', { class: 'tb-btn bell', type: 'button', title: 'الدردشة العائلية', 'aria-label': 'الدردشة العائلية', onclick: openChat }, icon('chat'), h('span', { class: 'lbl', text: 'الدردشة' }), chatBadges[0]),
         (!DEMO || FAKE_BACKEND) && tbBtn('users', 'المشاركة', openShare, 'المشاركة والأعضاء'),
         (!DEMO || FAKE_BACKEND) && tbBtn('history', 'السجل', openHistory, 'سجل التعديلات'),
         tbBtn('printer', 'طباعة', printTree, 'طباعة الشجرة المعروضة'),
@@ -3289,7 +3302,7 @@ function mountMain(treeName) {
     bottomNav,
   );
 
-  ui = { viewport, loading, zoom, empty, panel, quick, results, bellBadge, navBadge };
+  ui = { viewport, loading, zoom, empty, panel, quick, results, bellBadge, navBadge, chatBadges };
   chart = new Chart(viewport, {
     onSelect,
     onToggle,
@@ -4712,6 +4725,219 @@ async function memberNames(force = false) {
   state.names = new Map((data || []).map((m) => [m.user_id, m.profile?.display_name || 'بدون اسم']));
   state.namesTree = state.treeId;
   return state.names;
+}
+
+// ====================================================================
+// the family chat room (supabase/018_chat.sql): one room for the whole tree, every member writes
+// ====================================================================
+
+const CHAT_PAGE = 100;
+const chatKey = () => `ft.chat.${state.treeId}`;
+let chatView = null; // while the dialog is open: { list, older, input, send, names }
+
+/** The newest messages (more on demand). The badge counts what arrived after the last time the room was opened. */
+async function loadChat() {
+  if (!hasBackend() || OFFLINE) return;
+  const tid = state.treeId;
+  const { data, error } = await sb.from('tree_messages').select('id, user_id, body, created_at').eq('tree_id', tid).order('created_at', { ascending: false }).limit(CHAT_PAGE);
+  if (tid !== state.treeId) return;
+  if (error) {
+    state.chat = { rows: new Map(), more: false, readAt: Date.now(), missing: true }; // migration 018 is not run yet
+    return paintChatBadges();
+  }
+  let readAt = Number(safeGet(chatKey()));
+  if (!readAt) {
+    readAt = Date.now(); // somebody new does not start with the old room as «unread»
+    remember(chatKey(), String(readAt));
+  }
+  state.chat = { rows: new Map((data || []).map((r) => [r.id, r])), more: (data || []).length >= CHAT_PAGE, readAt, missing: false };
+  subscribeChat();
+  paintChatBadges();
+}
+
+function subscribeChat() {
+  if (state.chatChannel || !sb?.channel) return;
+  const tid = state.treeId;
+  // a channel of its own: whatever happens to it never touches the live updates of the tree
+  state.chatChannel = sb
+    .channel('chat-' + tid)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tree_messages', filter: `tree_id=eq.${tid}` }, (p) => {
+      if (p.eventType === 'DELETE') return chatRemove(p.old?.id);
+      if (p.new?.tree_id === tid) chatPush(p.new);
+    })
+    .subscribe();
+}
+
+const chatTime = (iso) => Date.parse(iso) || 0;
+function chatUnread() {
+  const c = state.chat;
+  if (!c || !state.user) return 0;
+  let n = 0;
+  for (const r of c.rows.values()) if (r.user_id !== state.user.id && chatTime(r.created_at) > c.readAt) n++;
+  return n;
+}
+function paintChatBadges() {
+  const n = chatUnread();
+  for (const b of ui.chatBadges || []) {
+    b.textContent = n > 99 ? '99+' : String(n);
+    b.hidden = n === 0;
+  }
+}
+function chatMarkRead() {
+  const c = state.chat;
+  if (!c) return;
+  c.readAt = Math.max(c.readAt, ...[...c.rows.values()].map((r) => chatTime(r.created_at)));
+  remember(chatKey(), String(c.readAt));
+  paintChatBadges();
+}
+function chatPush(row) {
+  const c = state.chat;
+  if (!c || !row?.id) return;
+  c.rows.set(row.id, row);
+  if (chatView) {
+    paintChat();
+    chatMarkRead();
+  } else {
+    paintChatBadges();
+  }
+}
+function chatRemove(id) {
+  const c = state.chat;
+  if (!c || !id) return;
+  c.rows.delete(id);
+  if (chatView) paintChat();
+  paintChatBadges();
+}
+
+const dayName = (d) => {
+  const today = new Date();
+  const yest = new Date(Date.now() - 86400e3);
+  if (d.toDateString() === today.toDateString()) return 'اليوم';
+  if (d.toDateString() === yest.toDateString()) return 'أمس';
+  return new Intl.DateTimeFormat('ar-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' }).format(d);
+};
+const hourOf = (d) => new Intl.DateTimeFormat('ar-u-nu-latn', { hour: 'numeric', minute: '2-digit' }).format(d);
+
+/** The names of the authors (the members; somebody who left shows as «عضو سابق»). Asked again at most once a minute. */
+async function chatNames() {
+  const stale = !state.chatNamesAt || Date.now() - state.chatNamesAt > 60000;
+  const unknown = (n) => [...(state.chat?.rows.values() || [])].some((r) => r.user_id && !n.has(r.user_id));
+  let n = await memberNames();
+  if (stale && unknown(n)) {
+    n = await memberNames(true);
+    state.chatNamesAt = Date.now();
+  }
+  return n;
+}
+
+function paintChat() {
+  const v = chatView;
+  const c = state.chat;
+  if (!v || !c) return;
+  const near = v.list.scrollHeight - v.list.scrollTop - v.list.clientHeight < 90;
+  const rows = [...c.rows.values()].sort((a, b) => chatTime(a.created_at) - chatTime(b.created_at));
+  const nodes = [];
+  let day = '';
+  for (const r of rows) {
+    const d = new Date(r.created_at);
+    if (d.toDateString() !== day) {
+      day = d.toDateString();
+      nodes.push(h('div', { class: 'chat-day', text: dayName(d) }));
+    }
+    const mine = r.user_id === state.user.id;
+    nodes.push(
+      h(
+        'div',
+        { class: `msg${mine ? ' mine' : ''}` },
+        h(
+          'div',
+          { class: 'msg-head' },
+          h('strong', { text: mine ? 'أنت' : v.names.get(r.user_id) || 'عضو سابق' }),
+          h('small', { class: 'muted', text: hourOf(d) }),
+          (mine || state.role === 'admin') && miniBtn('x', 'حذف', () => deleteChat(r), { danger: true, title: 'حذف الرسالة' }),
+        ),
+        h('div', { class: 'msg-body', text: r.body }),
+      ),
+    );
+  }
+  put(v.list, rows.length ? nodes : h('p', { class: 'muted chat-empty', text: 'لا رسائل بعد. اكتب أول رسالة لأفراد العائلة.' }));
+  v.older.hidden = !c.more;
+  if (v.stick || near) v.list.scrollTop = v.list.scrollHeight;
+  v.stick = false;
+}
+
+async function deleteChat(r) {
+  if (!(await confirmBox('حذف الرسالة', 'ستُحذف هذه الرسالة من الدردشة عند جميع أفراد العائلة.', 'حذف', true))) return;
+  await run(async () => {
+    const { data, error } = await sb.from('tree_messages').delete().eq('id', r.id).select('id');
+    if (error) throw error;
+    if (!data?.length) throw new Error('permission denied');
+    chatRemove(r.id);
+  });
+}
+
+async function sendChat() {
+  const v = chatView;
+  const text = v?.input.value.trim();
+  if (!text) return;
+  v.send.disabled = true;
+  try {
+    const { data, error } = await sb.from('tree_messages').insert({ tree_id: state.treeId, body: text }).select('id, user_id, body, created_at').single();
+    if (error) throw error;
+    if (chatView === v) {
+      v.input.value = '';
+      v.input.style.height = '';
+      v.stick = true;
+    }
+    chatPush(data);
+  } catch (ex) {
+    toast(friendly(ex), true);
+  } finally {
+    v.send.disabled = false;
+  }
+}
+
+async function chatOlder() {
+  const c = state.chat;
+  const v = chatView;
+  if (!c || !v) return;
+  const oldest = [...c.rows.values()].reduce((m, r) => Math.min(m, chatTime(r.created_at)), Infinity);
+  await run(async () => {
+    const { data, error } = await sb.from('tree_messages').select('id, user_id, body, created_at').eq('tree_id', state.treeId).lt('created_at', new Date(oldest).toISOString()).order('created_at', { ascending: false }).limit(CHAT_PAGE);
+    if (error) throw error;
+    for (const r of data || []) c.rows.set(r.id, r);
+    c.more = (data || []).length >= CHAT_PAGE;
+    v.names = await chatNames();
+    const keep = v.list.scrollHeight - v.list.scrollTop;
+    paintChat();
+    v.list.scrollTop = v.list.scrollHeight - keep; // stay where the person was reading
+  });
+}
+
+async function openChat() {
+  if (!state.chat) await loadChat();
+  if (state.chat?.missing) return toast('الدردشة غير مفعّلة بعد: تحتاج خطوة قاعدة البيانات 018 من مدير الشجرة.', true);
+  const list = h('div', { class: 'chat-list', role: 'log', 'aria-live': 'polite', 'aria-label': 'رسائل الدردشة' });
+  const older = h('button', { class: 'btn small', type: 'button', text: 'عرض رسائل أقدم', hidden: true, onclick: chatOlder });
+  const input = h('textarea', { class: 'chat-input', rows: 1, maxlength: 1000, placeholder: 'اكتب رسالة لأفراد العائلة…', 'aria-label': 'رسالة جديدة' });
+  const send = h('button', { class: 'btn primary', type: 'button', text: 'إرسال', onclick: sendChat });
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = `${Math.min(input.scrollHeight, 140)}px`;
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !TOUCH) {
+      e.preventDefault(); // a computer: Enter sends, Shift+Enter is a new line (a phone: Enter is a new line, the button sends)
+      sendChat();
+    }
+  });
+  const body = h('div', { class: 'chat' }, older, list, h('div', { class: 'chat-compose' }, input, send), h('small', { class: 'muted', text: 'يقرؤها كل من في الشجرة. تحذف رسائلك بزر ×، والمدير يحذف أي رسالة.' }));
+  modal('الدردشة العائلية', body, { onclose: () => (chatView = null) });
+  chatView = { list, older, input, send, names: new Map(), stick: true };
+  chatView.names = await chatNames();
+  paintChat();
+  chatMarkRead();
+  if (!TOUCH) input.focus(); // (on a phone the keyboard would hide the room)
 }
 
 // ---------- comments on a card ----------
