@@ -13,7 +13,7 @@ create table public.tree_messages (
   id         uuid primary key default gen_random_uuid(),
   tree_id    uuid not null references public.trees (id) on delete cascade,
   user_id    uuid default auth.uid() references auth.users (id) on delete set null,
-  body       text not null check (char_length(btrim(body)) between 1 and 1000),
+  body       text not null check (char_length(body) <= 1000 and body ~ '\S'), -- not empty, not only spaces / new lines
   created_at timestamptz not null default now()
 );
 
