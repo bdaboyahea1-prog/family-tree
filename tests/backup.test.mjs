@@ -37,7 +37,7 @@ for (const [name, text] of [['script', gs], ['workflow', wf]]) {
   assert.ok(!/service_role|sb_secret|password|BACKUP_TOKEN\s*=\s*['"][0-9a-f]{20,}/i.test(text), `no secret in the ${name}`);
 }
 assert.ok(/getProperty\('BACKUP_TOKEN'\)/.test(gs), 'the token is read from the script properties');
-assert.ok(/KEEP\s*=\s*1\b/.test(gs), 'the default keeps only the newest backup, as asked');
+assert.ok(/KEEP *= *7[^0-9]/.test(gs), 'the script keeps a week of backups (the user chose 7)');
 assert.ok(/setTrashed\(true\)/.test(gs) && gs.indexOf('createFile') < gs.indexOf('setTrashed'), 'the old files go only after the new one is written');
 assert.ok(/cron: '\d+ \d+ \* \* \*'/.test(wf), 'the workflow runs daily');
 

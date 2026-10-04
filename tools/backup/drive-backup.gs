@@ -18,7 +18,7 @@ const SUPABASE_URL = 'https://dkepvzpayquwgmkabutx.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_kSHO3_NvVdi-E1xvJGIzTA_-9XW9uIs'; // the public key of the site
 const FOLDER_NAME = 'نسخ شجرة آل هرموش الاحتياطية';
 const FILE_PREFIX = 'نسخة-الشجرة-';
-const KEEP = 1; // how many backup files to keep (1 = only the newest). Change to 7 to keep a week.
+const KEEP = 7; // how many backup files to keep: the newest 7 (a week). 1 would keep only the newest.
 
 function backupNow() {
   const raw = PropertiesService.getScriptProperties().getProperty('BACKUP_TOKEN');
