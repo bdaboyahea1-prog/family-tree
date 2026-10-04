@@ -126,7 +126,8 @@ export function fromJson(text) {
     email: r.email,
     notes: r.notes,
   }));
-  return { persons, marriages, info, warnings };
+  const settings = data.extra?.tree && typeof data.extra.tree === 'object' && !Array.isArray(data.extra.tree) ? data.extra.tree : null;
+  return { persons, marriages, info, settings, warnings };
 }
 
 // ====================================================================
@@ -551,13 +552,34 @@ export function planImport(model, newId = () => globalThis.crypto.randomUUID()) 
   }
   if (infoSkipped) warnings.push(`${infoSkipped} صفًا من جداول معلومات النساء أُهمل (صاحبته غير موجودة في الملف أو ليست أنثى، أو صفّه ناقص).`);
 
+  const settings = cleanSettings(model.settings);
+
   return {
     personRows,
     marriageRows,
     infoRows,
+    settings,
     warnings,
-    stats: { persons: personRows.length, marriages: marriageRows.length, info: infoRows.length },
+    stats: { persons: personRows.length, marriages: marriageRows.length, info: infoRows.length, settings: Object.keys(settings).length },
   };
+}
+
+/**
+ * The settings of a tree that a backup carries (extra.tree), cleaned to what the admin may write back: only the keys that are
+ * in the file and have a valid value. (The database has its own checks as well.)
+ */
+export function cleanSettings(t) {
+  const out = {};
+  if (!t || typeof t !== 'object') return out;
+  const plain = (v, max) => v && typeof v === 'object' && !Array.isArray(v) && JSON.stringify(v).length <= max;
+  const name = typeof t.name === 'string' ? t.name.trim() : '';
+  if (name && name.length <= 100) out.name = name;
+  if ('about' in t && (t.about === null || plain(t.about, 3500))) out.about = t.about;
+  if (['full', 'info', 'none'].includes(t.female_card_mode)) out.female_card_mode = t.female_card_mode;
+  if (typeof t.public_page === 'boolean') out.public_page = t.public_page;
+  if (typeof t.public_show_living === 'boolean') out.public_show_living = t.public_show_living;
+  if ('default_look' in t && (t.default_look === null || plain(t.default_look, 1800))) out.default_look = t.default_look;
+  return out;
 }
 
 /** Split rows into chunks (each request to the database stays small). */

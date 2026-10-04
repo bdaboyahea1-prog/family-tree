@@ -3006,6 +3006,19 @@ function exportTree(kind) {
  * merged: people already in the tree would appear twice, so the preview says what will happen.
  * Every chunk is one logged action and can be undone from the history.
  */
+/** What the settings of a backup contain, in words (for the import dialog). */
+function settingsText(s) {
+  return [
+    s.name && 'الاسم',
+    'about' in s && 'نبذة العائلة',
+    s.female_card_mode && 'قاعدة بطاقات الإناث',
+    ('public_page' in s || 'public_show_living' in s) && 'الصفحة العامة',
+    'default_look' in s && 'الشكل الافتراضي',
+  ]
+    .filter(Boolean)
+    .join('، ');
+}
+
 function openImport() {
   let plan = null;
   const status = h('div', { class: 'muted' });
@@ -3016,6 +3029,7 @@ function openImport() {
   const file = h('input', { type: 'file', accept: '.json,.ged,.gedcom,.txt,application/json' });
   const preview = h('div', { class: 'stack' });
 
+  const restoreSettings = h('input', { type: 'checkbox', id: 'imp-settings' }); // the settings of the tree, from the file
   const refreshGo = () => (go.disabled = !plan || !confirmBox_.checked);
   confirmBox_.addEventListener('change', refreshGo);
 
@@ -3035,8 +3049,10 @@ function openImport() {
         h('div', { class: 'notice' }, h('strong', { text: `سيُضاف ${plan.stats.persons} شخصًا و${plan.stats.marriages} سجل زواج${plan.stats.info ? ` و${plan.stats.info} صفًا في جداول معلومات أبناء النساء` : ''}.` })),
         ...plan.warnings.map((w) => h('p', { class: 'muted small-note', text: `• ${w}` })),
         h('p', { class: 'muted small-note', text: `الشجرة الحالية فيها ${state.persons.size} شخصًا. لا يُحذف شيء ولا يُدمج: إن كان الملف يحوي أشخاصًا موجودين أصلًا فسيظهرون مرتين.` }),
+        plan.stats.settings > 0 && h('label', { class: 'check', for: 'imp-settings' }, restoreSettings, `أعِد أيضًا إعدادات الشجرة من الملف (${settingsText(plan.settings)}). تستبدل الإعدادات الحالية.`),
         h('label', { class: 'check', for: 'imp-ok' }, confirmBox_, 'أفهم ذلك وأريد إضافتهم إلى هذه الشجرة'),
       );
+      restoreSettings.checked = state.persons.size === 0; // an empty tree is being restored: its settings come back by default
     } catch (ex) {
       err.textContent = friendly(ex);
     }
@@ -3054,6 +3070,7 @@ function openImport() {
       let done = 0;
       let added = 0;
       let infoAdded = 0;
+      let settingsDone = false;
       try {
         for (const part of pChunks) {
           const { error } = await sb.from('persons').insert(part.map((r) => ({ tree_id: state.treeId, ...r })));
@@ -3066,6 +3083,15 @@ function openImport() {
           const { error } = await sb.from('marriages').insert(part.map((r) => ({ tree_id: state.treeId, ...r })));
           if (error) throw error;
           fill.style.width = `${(++done / total) * 100}%`;
+        }
+        // the settings of the tree, before the information tables (they need the «information only» rule that may be among them)
+        if (plan.stats.settings > 0 && restoreSettings.checked) {
+          const { error } = await sb.from('trees').update(plan.settings).eq('id', state.treeId);
+          if (error) toast(`تعذّر استرجاع إعدادات الشجرة: ${friendly(error)}`, true);
+          else {
+            Object.assign(currentTree(), plan.settings);
+            settingsDone = true;
+          }
         }
         // the information tables of the women's cards: the database accepts them only while the tree is on the «information only» rule
         if (iChunks.length) {
@@ -3089,8 +3115,9 @@ function openImport() {
       await loadTreeData();
       rebuild();
       chart.focusTop();
-      toast(`تم استيراد ${plan.stats.persons} شخصًا${infoAdded ? ` و${infoAdded} صفًا من معلومات أبناء النساء` : ''}`);
+      toast(`تم استيراد ${plan.stats.persons} شخصًا${infoAdded ? ` و${infoAdded} صفًا من معلومات أبناء النساء` : ''}${settingsDone ? ' واسترجاع إعدادات الشجرة' : ''}`);
       dlg.close();
+      if (settingsDone) setTimeout(() => location.reload(), 1600); // the name, the rule and the look are read when the tree opens
     }).finally(() => {
       file.disabled = false;
       refreshGo();

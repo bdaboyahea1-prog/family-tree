@@ -1,52 +1,13 @@
 -- =====================================================================
--- 019: a read-only backup door for the daily backup to Google Drive (run after 018, once)
---
---  * A "backup token" is a long secret made by the database owner in the SQL Editor (make_backup_token).
---    Only its hash is stored, so a copy of the table reveals nothing. A token is tied to ONE tree.
---  * backup_export(token) returns that tree as one JSON document, and nothing else: it cannot write, and it
---    gives no access to anything but the data of that tree. A wrong token is refused.
---  * The document has the same shape as the program's own «نسخة احتياطية JSON» (format / version / persons /
---    marriages), so the program can import it back, plus the extra tables under "extra".
---  * Not included: invitation codes, requests to join (their documents and contacts), the change log, the
---    photos (they live in the private storage).
---  * To stop using a token: delete its row (delete from public.backup_tokens where label = '...').
+-- 019b: the settings of the tree in the backup (run ONCE if you ran 019_backup.sql before this fix)
+-- The backup already carried the name, the «about» text, the rule of the women's cards and the default look;
+-- now it carries also the public page switches (public_page, public_show_living), so a restore can bring back all
+-- the settings of the tree. Same function, replaced in place (its permissions stay as they were).
+-- A new set-up that runs the corrected 019_backup.sql does not need this file (running it anyway does no harm).
 -- =====================================================================
 
-create table public.backup_tokens (
-  token_hash   bytea primary key,                       -- sha256 of the token (the token itself is never kept)
-  tree_id      uuid not null references public.trees (id) on delete cascade,
-  label        text,
-  created_at   timestamptz not null default now(),
-  last_used_at timestamptz
-);
-
--- nobody reaches this table through the API
-alter table public.backup_tokens enable row level security;
-revoke all on public.backup_tokens from public, anon, authenticated;
-
--- Make a token for a tree. The token is shown ONCE (here, as the result): copy it at once.
--- Only the database owner (the SQL Editor) may call it.
-create function public.make_backup_token(p_tree uuid, p_label text default null) returns text
-language plpgsql security definer
-set search_path = public
-as $$
-declare
-  v_token text;
-begin
-  if not exists (select 1 from public.trees where id = p_tree) then
-    raise exception 'no such tree';
-  end if;
-  v_token := replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''); -- 64 hex letters, from the strong random source
-  insert into public.backup_tokens (token_hash, tree_id, label)
-  values (sha256(convert_to(v_token, 'UTF8')), p_tree, p_label);
-  return v_token;
-end;
-$$;
-
-revoke all on function public.make_backup_token(uuid, text) from public, anon, authenticated;
-
 -- The backup: one JSON document for the tree of the token.
-create function public.backup_export(p_token text) returns jsonb
+create or replace function public.backup_export(p_token text) returns jsonb
 language plpgsql security definer
 set search_path = public
 as $$
@@ -86,5 +47,3 @@ begin
 end;
 $$;
 
-revoke all on function public.backup_export(text) from public;
-grant execute on function public.backup_export(text) to anon, authenticated;

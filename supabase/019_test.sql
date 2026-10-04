@@ -103,6 +103,7 @@ begin
   perform public.tlog('...the persons carry what the importer reads (id, names, gender, father_id)', (j -> 'persons' -> 0) ?& array['id', 'first_name', 'gender', 'father_id']);
   perform public.tlog('...the marriages carry person_a, person_b and status', (j -> 'marriages' -> 0) ?& array['person_a', 'person_b', 'status']);
   perform public.tlog('...no tree_id / created_by in the rows', not ((j -> 'persons' -> 0) ? 'tree_id') and not ((j -> 'persons' -> 0) ? 'created_by'));
+  perform public.tlog('...the settings of the tree (name, about, rule of the women''s cards, public page, default look)', (j #> '{extra,tree}') ?& array['name', 'about', 'female_card_mode', 'public_page', 'public_show_living', 'default_look']);
   perform public.tlog('...the comments of the tree', jsonb_array_length(j #> '{extra,comments}') = 1);
   perform public.tlog('...the messages of THIS tree only', jsonb_array_length(j #> '{extra,messages}') = 1 and not (j #> '{extra,messages}')::text like '%الأخرى%');
   perform public.tlog('...the members with their names, and no e-mail addresses', jsonb_array_length(j #> '{extra,members}') = 2 and not (j #> '{extra,members}')::text like '%@%');

@@ -2,7 +2,7 @@
 // keep carrying only public values. (The database side is tested by supabase/019_test.sql.)
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { FORMAT, VERSION, fromJson, planImport } from '../js/transfer.js';
+import { FORMAT, VERSION, fromJson, planImport, cleanSettings } from '../js/transfer.js';
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const sql = read('supabase/019_backup.sql');
@@ -69,5 +69,23 @@ assert.equal(plan.infoRows[1].is_deceased, true);
 assert.ok(plan.warnings.some((w) => w.includes('أُهمل')), 'the skipped rows are reported');
 // a file without the information part (the older backups, GEDCOM) still imports as before
 assert.equal(planImport(fromJson(JSON.stringify(doc))).infoRows.length, 0);
+
+// the settings of the tree in the backup (extra.tree) come back: only valid keys, only what the admin may write
+const settingsDoc = {
+  ...doc,
+  extra: { ...doc.extra, tree: { name: ' شجرة آل هرموش ', about: { intro: 'نبذة' }, female_card_mode: 'info', public_page: true, public_show_living: false, default_look: { cardStyle: 'portrait' }, created_at: '2026-01-01' } },
+};
+const sp = planImport(fromJson(JSON.stringify(settingsDoc)));
+assert.deepEqual(sp.settings, { name: 'شجرة آل هرموش', about: { intro: 'نبذة' }, female_card_mode: 'info', public_page: true, public_show_living: false, default_look: { cardStyle: 'portrait' } });
+assert.equal(sp.stats.settings, 6, 'created_at is not a setting');
+// bad values are dropped one by one; a null look / about means «none» and is kept
+assert.deepEqual(cleanSettings({ name: '', female_card_mode: 'everyone', public_page: 'yes', about: [], default_look: null }), { default_look: null });
+assert.deepEqual(cleanSettings({ name: 'x'.repeat(101), about: null }), { about: null });
+assert.deepEqual(cleanSettings(null), {});
+assert.deepEqual(cleanSettings({ default_look: { big: 'y'.repeat(2500) } }), {}, 'a look that is too big is dropped');
+// an older backup without the settings imports as before
+assert.deepEqual(planImport(fromJson(JSON.stringify({ ...doc, extra: undefined }))).settings, {});
+// the daily backup of the database carries the same keys the importer reads
+for (const key of ['name', 'about', 'female_card_mode', 'public_page', 'public_show_living', 'default_look']) assert.ok(sql.includes(`'${key}'`), `019_backup.sql carries ${key}`);
 
 console.log('BACKUP OK');
