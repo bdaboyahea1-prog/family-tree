@@ -21,8 +21,13 @@ const FILE_PREFIX = 'نسخة-الشجرة-';
 const KEEP = 1; // how many backup files to keep (1 = only the newest). Change to 7 to keep a week.
 
 function backupNow() {
-  const token = PropertiesService.getScriptProperties().getProperty('BACKUP_TOKEN');
-  if (!token) throw new Error('BACKUP_TOKEN is not set (Project settings -> Script properties).');
+  const raw = PropertiesService.getScriptProperties().getProperty('BACKUP_TOKEN');
+  if (!raw) throw new Error('BACKUP_TOKEN is not set (Project settings -> Script properties).');
+  // a copy often carries a space, a line break or quotation marks: they are removed
+  const token = raw.replace(/[\s"'“”‘’]/g, '');
+  if (!/^[0-9a-f]{64}$/i.test(token)) {
+    throw new Error('BACKUP_TOKEN is not a token of 64 letters and digits (yours has ' + token.length + '). Copy it again from the result of make_backup_token.');
+  }
 
   const res = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/rpc/backup_export', {
     method: 'post',
