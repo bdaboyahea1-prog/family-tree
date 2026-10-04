@@ -1,0 +1,21 @@
+# A daily visit to the database. A free Supabase project that nobody touches for about a week is paused;
+# this keeps it awake. It carries no secret: the address and the key are the public ones of the site (js/config.js).
+# If the visit fails GitHub e-mails the owner of the repository (the run turns red).
+# Note: GitHub switches scheduled runs off in a public repository after 60 days without any commit.
+name: keep-alive
+
+on:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask the database for the public page
+        run: |
+          curl --fail --silent --show-error --max-time 30 -X POST "https://dkepvzpayquwgmkabutx.supabase.co/rest/v1/rpc/public_teaser"             -H "apikey: sb_publishable_kSHO3_NvVdi-E1xvJGIzTA_-9XW9uIs"             -H "Authorization: Bearer sb_publishable_kSHO3_NvVdi-E1xvJGIzTA_-9XW9uIs"             -H "Content-Type: application/json"             -d '{}' > /dev/null
+          echo "The database answered."
