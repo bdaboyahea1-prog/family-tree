@@ -4047,11 +4047,18 @@ function renderPanel() {
   // A wife (or husband) row: click = show the children they have with this person,
   // highlighted in the chart; the small button opens their own details.
   if (!spouses.some((s) => s.person.id === state.activeSpouse)) state.activeSpouse = null;
+  // A woman on the "information only" rule: her children are rows of her information table, not cards. With one husband they
+  // are counted (and listed) with him; with several the table cannot say whose they are, so a note under the list gives their number.
+  const infoKids = p.gender === 'female' ? infoRowsOf(p).filter((r) => r.kind === 'son' || r.kind === 'daughter') : [];
+  const infoKidRow = (r) =>
+    h('li', { class: 'info-kid' }, h('strong', { text: [r.first_name, r.last_name].filter(Boolean).join(' ') }), h('small', { class: 'muted', text: ` · ${INFO_KIND[r.kind]}${r.birth_date ? ` · ${r.birth_date}` : ''} · في جدول المعلومات` }));
+
   const spouseRow = (s, i) => {
     const active = state.activeSpouse === s.person.id;
     const shared = commonChildren(idx, p.id, s.person.id);
+    const own = spouses.length === 1 ? infoKids : [];
     const dot = spouses.length > 1 ? SPOUSE_COLORS[i % SPOUSE_COLORS.length] : null;
-    const info = [s.marriage ? STATUS_LABEL[s.marriage.status] : null, `${shared.length} من الأبناء`].filter(Boolean).join(' · ');
+    const info = [s.marriage ? STATUS_LABEL[s.marriage.status] : null, `${shared.length + own.length} من الأبناء`].filter(Boolean).join(' · ');
     return h(
       'li',
       { class: `spouse-item${active ? ' active' : ''}` },
@@ -4080,8 +4087,8 @@ function renderPanel() {
         h(
           'ul',
           { class: 'rel-list sub' },
-          shared.length
-            ? shared.map((c) => relRow(c, { sub: lifeSpan(c) || null }))
+          shared.length || own.length
+            ? [shared.map((c) => relRow(c, { sub: lifeSpan(c) || null })), own.map(infoKidRow)]
             : h('li', { class: 'muted', text: 'لا أبناء مسجّلون بينهما' }),
         ),
     );
@@ -4116,6 +4123,7 @@ function renderPanel() {
 
     spouses.length > 0 && h('div', { class: 'section-title', text: p.gender === 'male' ? 'الزوجات (اضغط على زوجة لتظهر أبناؤها)' : 'الأزواج (اضغط لتظهر الأبناء)' }),
     spouses.length > 0 && h('ul', { class: 'rel-list' }, spouses.map(spouseRow)),
+    spouses.length > 1 && infoKids.length > 0 && h('p', { class: 'muted small-note', text: `${infoKids.length} من الأبناء مسجَّلون في جدول المعلومات (لا يُنسَبون لزوج بعينه).` }),
 
     kids.length > 0 && h('div', { class: 'section-title', text: `الأبناء (${kids.length})` }),
     kids.length > 0 && h('ul', { class: 'rel-list' }, kids.map(kidRow)),

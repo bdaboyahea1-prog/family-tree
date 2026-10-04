@@ -1014,3 +1014,6 @@ html.js .boot-loading { display: grid; min-height: 100vh; }
   .zoom-btn .icon { width: 15px; height: 15px; }
   .zoom-btn .lbl { display: none; }
 }
+
+/* a child written in a woman's information table, listed under her husband */
+.info-kid { list-style: none; padding: 6px 10px; border: 1px dashed var(--line); border-radius: 10px; font-size: 14px; }
