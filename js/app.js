@@ -3095,6 +3095,24 @@ function onToggle(id) {
 /** Whole-tree editing (admin / editor). Per-person rights live in state.perms. */
 const canEditAll = () => state.role === 'admin' || state.role === 'editor';
 
+/**
+ * The button «تحديث»: the newest version of the program and the newest data of the tree. The installed app has no refresh button of its
+ * own. It is a reload; the service worker asks the server first, so a published update comes in. Text typed and not yet saved is asked about.
+ */
+async function refreshApp() {
+  if (!navigator.onLine) return toast('لا يوجد اتصال بالإنترنت الآن', true);
+  const unsaved = quickRows.some((r) => `${r.name}${r.birth}${r.death}`.trim()) || [...commentDrafts.values()].some((t) => t.trim());
+  if (unsaved && !(await confirmBox('تحديث', 'عندك نص لم يُحفظ بعد (في الجدول أو في تعليق)، وسيضيع عند التحديث.', 'حدّث رغم ذلك'))) return;
+  toast('جارٍ التحديث…');
+  if (OFFLINE) return leaveOffline();
+  try {
+    await (await navigator.serviceWorker?.getRegistration())?.update();
+  } catch {
+    /* the reload below asks the server anyway */
+  }
+  location.reload();
+}
+
 /** The phone's "المزيد": what is not in the bottom bar. */
 function openMore() {
   const item = (name, label, fn) => h('button', { class: 'more-item', type: 'button', onclick: () => (dlg.close(), fn()) }, icon(name), h('span', { text: label }));
@@ -3249,6 +3267,7 @@ function mountMain(treeName) {
       { class: 'topbar' },
       h('div', { class: 'brand' }, h('span', { class: 'brand-mark' }, icon('tree')), treePicker),
       h('div', { class: 'search' }, icon('search'), search_, results),
+      h('button', { class: 'icon-btn refresh-btn', type: 'button', title: 'تحديث', 'aria-label': 'تحديث البرنامج وبيانات الشجرة', onclick: refreshApp }, icon('refresh')), // phone: the toolbar below is hidden there
       h('div', { class: 'spacer' }),
       h(
         'div',
@@ -3262,6 +3281,7 @@ function mountMain(treeName) {
         themeBtn,
         tbBtn('settings', 'الإعدادات', openSettings),
         tbBtn('info', 'عن المصمم', openAbout, ABOUT_TITLE),
+        !OFFLINE && tbBtn('refresh', 'تحديث', refreshApp, 'تحديث: أحدث نسخة من البرنامج وأحدث بيانات الشجرة'),
         OFFLINE ? tbBtn('refresh', 'اتصال', leaveOffline, 'إعادة الاتصال والعودة إلى الشجرة الكاملة') : tbBtn('logout', 'خروج', signOut, DEMO ? 'خروج من العرض التجريبي' : 'تسجيل الخروج'),
       ),
     ),
