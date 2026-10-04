@@ -1001,7 +1001,15 @@ html.js .boot-loading { display: grid; min-height: 100vh; }
 /* a phone: the zoom buttons are small round icons on a see-through background (no big white boxes over the tree) */
 @media (max-width: 600px) {
   .zoom { gap: 4px; inset-inline-start: 6px; top: 6px; }
-  .zoom-btn { width: 36px; height: 36px; min-height: 0; padding: 0; justify-content: center; border-radius: 50%; border-color: transparent; box-shadow: none; background: color-mix(in srgb, var(--surface) 62%, transparent); }
-  .zoom-btn .icon { width: 19px; height: 19px; }
+  .zoom-btn { width: 32px; height: 32px; min-height: 0; padding: 0; justify-content: center; border-radius: 50%; border-color: transparent; box-shadow: none; background: color-mix(in srgb, var(--surface) 62%, transparent); }
+  .zoom-btn .icon { width: 17px; height: 17px; }
   .zoom-btn .lbl { display: none; } /* every button keeps its title and aria-label */
+}
+
+/* a phone on its side: the same round buttons, smaller still (the screen is short) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .zoom { gap: 3px; inset-inline-start: 6px; top: 6px; }
+  .zoom-btn { width: 28px; height: 28px; min-height: 0; padding: 0; justify-content: center; border-radius: 50%; border-color: transparent; box-shadow: none; background: color-mix(in srgb, var(--surface) 62%, transparent); }
+  .zoom-btn .icon { width: 15px; height: 15px; }
+  .zoom-btn .lbl { display: none; }
 }
