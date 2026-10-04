@@ -997,3 +997,11 @@ html.js .boot-loading { display: grid; min-height: 100vh; }
 .install-pill[hidden] { display: none; }
 .landing > .install-pill { max-width: 560px; margin: 10px auto; }
 .more-list + .install-pill { margin-top: 12px; }
+
+/* a phone: the zoom buttons are small round icons on a see-through background (no big white boxes over the tree) */
+@media (max-width: 600px) {
+  .zoom { gap: 4px; inset-inline-start: 6px; top: 6px; }
+  .zoom-btn { width: 36px; height: 36px; min-height: 0; padding: 0; justify-content: center; border-radius: 50%; border-color: transparent; box-shadow: none; background: color-mix(in srgb, var(--surface) 62%, transparent); }
+  .zoom-btn .icon { width: 19px; height: 19px; }
+  .zoom-btn .lbl { display: none; } /* every button keeps its title and aria-label */
+}
