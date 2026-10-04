@@ -3236,6 +3236,7 @@ function mountMain(treeName) {
     zoomBtn('minus', 'تصغير', () => chart.zoomBy(1 / 1.3)),
     zoomBtn('fit', 'عرض الكل', () => chart.fit(), 'عرض الشجرة كاملة'),
     zoomBtn('home', 'الجذر', () => state.index.list.length && setRoot(defaultRoot(state.index)), 'العودة إلى جذر الشجرة'),
+    zoomBtn('refresh', OFFLINE ? 'اتصال' : 'تحديث', refreshApp, 'تحديث: أحدث نسخة من البرنامج وأحدث بيانات الشجرة'),
   );
   zoom.hidden = true;
 
@@ -3267,7 +3268,6 @@ function mountMain(treeName) {
       { class: 'topbar' },
       h('div', { class: 'brand' }, h('span', { class: 'brand-mark' }, icon('tree')), treePicker),
       h('div', { class: 'search' }, icon('search'), search_, results),
-      h('button', { class: 'icon-btn refresh-btn', type: 'button', title: 'تحديث', 'aria-label': 'تحديث البرنامج وبيانات الشجرة', onclick: refreshApp }, icon('refresh')), // phone: the toolbar below is hidden there
       h('div', { class: 'spacer' }),
       h(
         'div',
@@ -3281,7 +3281,6 @@ function mountMain(treeName) {
         themeBtn,
         tbBtn('settings', 'الإعدادات', openSettings),
         tbBtn('info', 'عن المصمم', openAbout, ABOUT_TITLE),
-        !OFFLINE && tbBtn('refresh', 'تحديث', refreshApp, 'تحديث: أحدث نسخة من البرنامج وأحدث بيانات الشجرة'),
         OFFLINE ? tbBtn('refresh', 'اتصال', leaveOffline, 'إعادة الاتصال والعودة إلى الشجرة الكاملة') : tbBtn('logout', 'خروج', signOut, DEMO ? 'خروج من العرض التجريبي' : 'تسجيل الخروج'),
       ),
     ),

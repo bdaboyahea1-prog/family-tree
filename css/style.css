@@ -997,7 +997,3 @@ html.js .boot-loading { display: grid; min-height: 100vh; }
 .install-pill[hidden] { display: none; }
 .landing > .install-pill { max-width: 560px; margin: 10px auto; }
 .more-list + .install-pill { margin-top: 12px; }
-
-/* the refresh button of the top bar: on a phone only (the toolbar with its own «تحديث» is hidden there) */
-.refresh-btn { display: none; }
-@media (max-width: 600px) { .refresh-btn { display: inline-grid; } }
