@@ -428,6 +428,7 @@ dialog.modal::backdrop { background: rgba(10, 16, 13, 0.55); }
 .code { font-family: ui-monospace, Consolas, monospace; direction: ltr; unicode-bidi: plaintext; font-size: 13px; }
 .badge { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
 .badge.off { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+.badge.owner { background: color-mix(in srgb, #e0a82e 24%, var(--surface)); color: var(--ink); border: 1px solid color-mix(in srgb, #e0a82e 55%, var(--line)); font-weight: 700; }
 .log-item { font-size: 14px; }
 .log-item small { color: var(--muted); display: block; }
 

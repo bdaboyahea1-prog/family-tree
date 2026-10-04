@@ -135,6 +135,7 @@ export function makeFakeSb(userId = 'u1', opts = {}) {
       { tree_id: 'demo', user_id: 'u1', role: 'admin', joined_at: '1', profile: { display_name: 'أنا (المدير)' } },
       { tree_id: 'demo', user_id: 'u2', role: 'viewer', joined_at: '2', profile: { display_name: 'سعد' } },
       { tree_id: 'demo', user_id: 'u3', role: 'viewer', joined_at: '3', profile: { display_name: 'منى' } },
+      { tree_id: 'demo', user_id: 'u4', role: 'admin', joined_at: '4', profile: { display_name: 'مدير ثانٍ' } },
     ],
     tree_invites: [
       { code: 'dddddddddddddddd', tree_id: 'demo', role: 'viewer', email: 'salma.visitor@example.com', branch_person_id: null, can_add: true, can_edit: true, can_delete: false, can_grant: false, enabled: true, uses: 0, max_uses: 1, created_at: '3' },

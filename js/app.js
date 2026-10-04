@@ -319,6 +319,7 @@ function friendly(err) {
     [/access_requests_one_pending/i, 'لديك طلب قائم على هذه البطاقة بانتظار القرار'],
     [/(column|relation|table).*nickname.*(does not exist|schema cache)|could not find the .*nickname/i, 'لم تُنفَّذ بعدُ خطوة قاعدة البيانات 014 (اللقب المشتهر به). نفّذها من SQL Editor ثم أعد المحاولة.'],
     [/(column|relation|table).*(default_look|\blook\b).*(does not exist|schema cache)|could not find the .*(default_look|look)/i, 'لم تُنفَّذ بعدُ خطوة قاعدة البيانات 015 (الشكل الافتراضي). نفّذها من SQL Editor ثم أعد المحاولة.'],
+    [/owner of a tree cannot be (removed|demoted)/i, 'مالك الشجرة محميّ: لا يمكن إزالته ولا إنزال مستواه.'],
     [/persons_nickname_check/i, 'اللقب المشتهر به أطول من المسموح (100 حرف)'],
     [/persons_phone_check/i, 'رقم الهاتف غير صالح: أرقام فقط، ويجوز + في البداية ومسافات وأقواس وشرطات'],
     [/persons_email_check/i, 'البريد الإلكتروني غير صالح'],
@@ -1582,9 +1583,9 @@ async function boot() {
     // the columns added by migrations 009 / 010 may not exist yet: fall back to the older set
     let ms = null;
     let error = null;
-    for (const cols of ['id, name, about, female_card_mode, public_page, public_show_living, default_look', 'id, name, about, female_card_mode, public_page, public_show_living', 'id, name, about, female_card_mode', 'id, name, about']) {
+    for (const cols of ['id, name, about, female_card_mode, public_page, public_show_living, default_look, owner_id', 'id, name, about, female_card_mode, public_page, public_show_living, default_look', 'id, name, about, female_card_mode, public_page, public_show_living', 'id, name, about, female_card_mode', 'id, name, about']) {
       ({ data: ms, error } = await sb.from('tree_members').select(`role, tree:trees(${cols})`).eq('user_id', state.user.id));
-      if (!error || !/female_card_mode|public_page|public_show_living|default_look/.test(error.message)) break;
+      if (!error || !/female_card_mode|public_page|public_show_living|default_look|owner_id/.test(error.message)) break;
     }
     if (error) throw error;
     state.memberships = (ms || []).filter((m) => m.tree);
@@ -1716,7 +1717,7 @@ async function saveSnapshot() {
       userId: state.user.id,
       displayName: state.profile?.display_name || null,
       treeId: state.treeId,
-      tree: { id: t.id, name: t.name, about: t.about ?? null, female_card_mode: t.female_card_mode ?? 'full', default_look: t.default_look ?? null },
+      tree: { id: t.id, name: t.name, about: t.about ?? null, female_card_mode: t.female_card_mode ?? 'full', default_look: t.default_look ?? null, owner_id: t.owner_id ?? null },
       lookMine: state.lookMine,
       persons: [...state.persons.values()],
       marriages: [...state.marriages.values()],
@@ -4622,14 +4623,19 @@ async function renderShare(body) {
         ]
       : [];
 
+    const ownerId = currentTree()?.owner_id || null;
     const memberSection = [
       h('div', { class: 'section-title', text: `الأعضاء (${members.length})` }),
+      ownerId && h('p', { class: 'muted small-note', text: 'مالك الشجرة فوق المديرين: لا يستطيع أحد إزالته ولا إنزال مستواه.' }),
       h(
         'ul',
         { class: 'list' },
         members.map((m) => {
           const me = m.user_id === state.user.id;
-          const roleSel = isAdmin
+          const isOwner = !!ownerId && m.user_id === ownerId; // above every admin: nobody can lower or remove the owner
+          const roleSel = isOwner
+            ? h('span', { class: 'badge owner', text: 'المالك' })
+            : isAdmin
             ? (() => {
                 const s = h('select', { 'aria-label': 'الدور' }, Object.entries(ROLE_LABEL).map(([v, t]) => h('option', { value: v, text: t })));
                 s.value = m.role;
@@ -4644,7 +4650,7 @@ async function renderShare(body) {
                 return s;
               })()
             : h('span', { class: 'badge', text: ROLE_LABEL[m.role] });
-          const canRemove = isAdmin || me;
+          const canRemove = !isOwner && (isAdmin || me);
           return h(
             'li',
             {},
@@ -5297,7 +5303,7 @@ async function init() {
   if (DEMO) {
     state.user = { id: location.hash === '#/demo-branch' ? 'u2' : 'u1' };
     if (FAKE_BACKEND) sb = makeFakeSb(state.user.id);
-    state.memberships = [{ role: DEMO_ROLE, tree: { id: 'demo', name: 'عائلة الراشد (عرض تجريبي)', about: demoAbout } }];
+    state.memberships = [{ role: DEMO_ROLE, tree: { id: 'demo', name: 'عائلة الراشد (عرض تجريبي)', about: demoAbout, owner_id: 'u1' } }]; // u1 owns the sample tree
     await openTree('demo');
     return;
   }
