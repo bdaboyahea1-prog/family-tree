@@ -641,6 +641,8 @@ dialog.modal::backdrop { background: rgba(10, 16, 13, 0.55); }
   background: var(--surface); border: 1px solid var(--line); border-radius: 999px;
 }
 .legend .sw { width: 10px; height: 10px; border-radius: 50%; background: var(--br, var(--muted)); }
+.legend .chip[data-id] { pointer-events: auto; cursor: pointer; } /* the legend itself lets the tree under it be touched; its chips are buttons */
+.legend .chip[data-id]:hover, .legend .chip[data-id]:focus-visible { background: var(--accent-soft); outline: 0; }
 .band {
   position: absolute; left: -30000px; width: 60000px; pointer-events: none;
   background: color-mix(in srgb, var(--ink) 5%, transparent);

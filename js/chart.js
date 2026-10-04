@@ -86,6 +86,14 @@ export class Chart {
     this.vp.append(this.stage);
     // not scaled with the drawing: the branch legend, and the generation labels of the bands design
     this.legend = el('div', 'legend');
+    // a chip of the legend takes you to that branch; the tree underneath must not start a drag or a tap from it
+    this.legend.addEventListener('pointerdown', (e) => e.stopPropagation());
+    const goBranch = (e) => {
+      const chip = e.target.closest?.('.chip[data-id]');
+      if (chip) this.handlers.onBranch?.(chip.dataset.id);
+    };
+    this.legend.addEventListener('click', goBranch);
+    this.legend.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), goBranch(e)));
     this.gens = el('div', 'gens');
     this.vp.append(this.legend, this.gens);
     // curves: connectors are smooth curves (else right angles); actions: the "إضافة" / "عرض" buttons on every card
@@ -300,12 +308,16 @@ export class Chart {
   }
 
   #overlays(result) {
-    // one chip per branch (= a child of the root)
-    const kids = (result?.cards[0]?.node?.children || []).filter((n) => n.branch >= 0);
+    // one chip per child of the root: a branch with descendants has its colour, one without anybody below is grey. A tap goes to the card and its branch.
+    const kids = result?.cards[0]?.node?.children || [];
     const chips = kids.slice(0, 16).map((n) => {
       const sw = el('i', 'sw');
-      sw.dataset.br = n.branch;
+      if (n.branch >= 0) sw.dataset.br = n.branch;
       const chip = el('span', 'chip');
+      chip.dataset.id = n.id;
+      chip.tabIndex = 0;
+      chip.setAttribute('role', 'button');
+      chip.title = 'الانتقال إلى بطاقته وفرعه';
       chip.append(sw, `فرع ${this.personOf(n.id).first_name}`);
       return chip;
     });
@@ -472,6 +484,38 @@ export class Chart {
     this.#apply();
   }
 
+  /** Brings a person and everyone below them into view (their whole branch), keeping `insetBottom` pixels at the foot free. */
+  fitBranch(id, { insetBottom = 0, animate = true } = {}) {
+    const head = this.#card0(id);
+    const vw = this.vp.clientWidth;
+    const vh = this.vp.clientHeight - insetBottom;
+    if (!head || !vw || vh <= 0) return;
+    const byId = new Map(this.result.cards.map((c) => [c.personId, c]));
+    let minX = head.x;
+    let minY = head.y;
+    let maxX = head.x + head.w;
+    let maxY = head.y + head.h;
+    const walk = (node) => {
+      for (const child of node.children || []) {
+        const c = byId.get(child.id);
+        if (c) {
+          minX = Math.min(minX, c.x);
+          minY = Math.min(minY, c.y);
+          maxX = Math.max(maxX, c.x + c.w);
+          maxY = Math.max(maxY, c.y + c.h);
+        }
+        walk(child);
+      }
+    };
+    walk(head.node);
+    const bw = maxX - minX;
+    const bh = maxY - minY;
+    this.k = Math.max(MIN_K, Math.min(1, (vw - 40) / bw, (vh - 40) / bh));
+    this.tx = (vw - bw * this.k) / 2 - minX * this.k;
+    this.ty = (vh - bh * this.k) / 2 - minY * this.k;
+    if (animate) this.#animate();
+    this.#apply();
+  }
   centerOn(id, { insetBottom = 0, animate = true, zoom = null } = {}) {
     const c = this.#card0(id);
     if (!c) return;

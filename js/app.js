@@ -1924,6 +1924,14 @@ function select(id) {
   state.selectedId = id;
 }
 
+/** A chip of the branch legend: that person's card is chosen and their whole branch is brought into view. */
+function goToBranch(id) {
+  select(id);
+  revealPerson(id);
+  rebuild();
+  chart.fitBranch(id, { insetBottom: sheetInset() });
+}
+
 function focusPerson(id) {
   select(id);
   revealPerson(id);
@@ -3308,6 +3316,7 @@ function mountMain(treeName) {
     onToggle,
     onAction,
     onDoubleTap: (id) => chart.centerOn(id, { insetBottom: sheetInset(), zoom: 1 }), // the sheet of the card (phone) must not cover it
+    onBranch: goToBranch,
   });
   chart.personOf = (id) => state.index.byId.get(id);
   chart.nameOf = displayName;
