@@ -566,6 +566,8 @@ dialog.modal::backdrop { background: rgba(10, 16, 13, 0.55); }
   color: var(--ink); font-size: 11px; line-height: 1.2; cursor: pointer;
 }
 .zoom-btn:hover { background: var(--accent-soft); }
+.zoom-btn { position: relative; }
+.zoom-btn .badge-dot { top: -5px; inset-inline-end: -5px; min-width: 17px; height: 17px; line-height: 17px; padding: 0 4px; font-size: 10.5px; }
 .zoom-btn .icon { width: 18px; height: 18px; }
 .zoom { gap: 6px; }
 .mini-btn {

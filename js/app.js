@@ -3266,7 +3266,7 @@ function mountMain(treeName) {
   };
   syncThemeBtn();
 
-  const chatBadges = [h('span', { class: 'badge-dot', hidden: true }), h('span', { class: 'badge-dot', hidden: true })]; // the toolbar's, the bar's
+  const chatBadges = [0, 1, 2].map(() => h('span', { class: 'badge-dot', hidden: true })); // the toolbar's, the phone bar's, the zoom column's
   const chatOn = hasBackend() && !OFFLINE;
   const bellBadge = h('span', { class: 'badge-dot', hidden: true });
   const bell = h('button', { class: 'tb-btn bell', type: 'button', 'aria-label': 'صندوق الوارد', title: 'صندوق الوارد: طلبات الصلاحية وبلاغات الأخطاء', onclick: openInbox }, icon('bell'), h('span', { class: 'lbl', text: 'الوارد' }), bellBadge);
@@ -3301,6 +3301,7 @@ function mountMain(treeName) {
     zoomBtn('fit', 'عرض الكل', () => chart.fit(), 'عرض الشجرة كاملة'),
     zoomBtn('home', 'الجذر', () => state.index.list.length && setRoot(defaultRoot(state.index)), 'العودة إلى جذر الشجرة'),
     zoomBtn('refresh', OFFLINE ? 'اتصال' : 'تحديث', refreshApp, 'تحديث: أحدث نسخة من البرنامج وأحدث بيانات الشجرة'),
+    chatOn && zoomBtn('chat', 'الدردشة', openChat, 'الدردشة العائلية').appendChild(chatBadges[2]).parentNode, // under the refresh button, with the count of unread messages
   );
   zoom.hidden = true;
 
