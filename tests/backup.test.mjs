@@ -2,7 +2,7 @@
 // keep carrying only public values. (The database side is tested by supabase/019_test.sql.)
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { FORMAT, VERSION, fromJson } from '../js/transfer.js';
+import { FORMAT, VERSION, fromJson, planImport } from '../js/transfer.js';
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const sql = read('supabase/019_backup.sql');
@@ -40,5 +40,34 @@ assert.ok(/getProperty\('BACKUP_TOKEN'\)/.test(gs), 'the token is read from the 
 assert.ok(/KEEP *= *7[^0-9]/.test(gs), 'the script keeps a week of backups (the user chose 7)');
 assert.ok(/setTrashed\(true\)/.test(gs) && gs.indexOf('createFile') < gs.indexOf('setTrashed'), 'the old files go only after the new one is written');
 assert.ok(/cron: '\d+ \d+ \* \* \*'/.test(wf), 'the workflow runs daily');
+
+// the information tables of the women's cards come back too: tied to the NEW id of the woman; rows about a man, of an unknown kind or without a name are left out
+const withInfo = {
+  ...doc,
+  persons: [...doc.persons, { id: 'c', first_name: 'أم', last_name: 'هرموش', gender: 'female', father_id: null, mother_id: null }],
+  extra: {
+    ...doc.extra,
+    card_info: [
+      { id: 'i1', person_id: 'c', kind: 'son', first_name: 'ماجد', last_name: 'الحربي', birth_date: '1970', is_deceased: false, birth_country: 'SA', phone: '+000 111 222 777', email: 'not-an-email', notes: 'ملاحظة' },
+      { id: 'i2', person_id: 'c', kind: 'daughter', first_name: 'سلمى', death_date: '2020', is_deceased: true },
+      { id: 'i3', person_id: 'a', kind: 'son', first_name: 'رجل' }, // about a man
+      { id: 'i4', person_id: 'c', kind: 'cousin', first_name: 'قريب' }, // an unknown kind
+      { id: 'i5', person_id: 'c', kind: 'spouse', first_name: '' }, // no name
+      { id: 'i6', person_id: 'zzz', kind: 'son', first_name: 'تائه' }, // her card is not in the file
+    ],
+  },
+};
+let counter = 0;
+const plan = planImport(fromJson(JSON.stringify(withInfo)), () => `id${++counter}`);
+assert.equal(plan.stats.persons, 3);
+assert.equal(plan.infoRows.length, 2, 'two usable information rows');
+assert.equal(plan.stats.info, 2);
+assert.ok(plan.infoRows.every((r) => r.person_id === 'id3'), 'tied to the new id of the woman');
+assert.equal(plan.infoRows[0].email, null, 'an invalid e-mail is dropped, the row stays');
+assert.equal(plan.infoRows[0].phone, '+000 111 222 777');
+assert.equal(plan.infoRows[1].is_deceased, true);
+assert.ok(plan.warnings.some((w) => w.includes('أُهمل')), 'the skipped rows are reported');
+// a file without the information part (the older backups, GEDCOM) still imports as before
+assert.equal(planImport(fromJson(JSON.stringify(doc))).infoRows.length, 0);
 
 console.log('BACKUP OK');

@@ -106,7 +106,27 @@ export function fromJson(text) {
     marriage_date: m.marriage_date,
     status: m.status,
   }));
-  return { persons, marriages, warnings };
+  // the information table of the women's cards (children and husbands written as information): only the daily backup carries it (data.extra)
+  const info = (Array.isArray(data.extra?.card_info) ? data.extra.card_info : []).map((r) => ({
+    person_key: String(r.person_id),
+    kind: r.kind,
+    first_name: r.first_name,
+    last_name: r.last_name,
+    birth_date: r.birth_date,
+    death_date: r.death_date,
+    is_deceased: r.is_deceased,
+    birth_country: r.birth_country,
+    birth_province: r.birth_province,
+    birth_city: r.birth_city,
+    birth_place: r.birth_place,
+    residence_country: r.residence_country,
+    residence_province: r.residence_province,
+    residence_city: r.residence_city,
+    phone: r.phone,
+    email: r.email,
+    notes: r.notes,
+  }));
+  return { persons, marriages, info, warnings };
 }
 
 // ====================================================================
@@ -500,11 +520,43 @@ export function planImport(model, newId = () => globalThis.crypto.randomUUID()) 
   }
   if (skipped) warnings.push(`${skipped} سجل زواج أُهمل (مكرر أو ناقص).`);
 
+  // the rows of the women's information tables: about a woman of the file, with the new id of the woman
+  const infoRows = [];
+  let infoSkipped = 0;
+  for (const r of model.info || []) {
+    const owner = byKey.get(r.person_key);
+    if (!owner || owner.gender !== 'female' || !['son', 'daughter', 'spouse'].includes(r.kind) || !cl(r.first_name, 'first_name')) {
+      infoSkipped++;
+      continue;
+    }
+    infoRows.push({
+      person_id: idOf.get(r.person_key),
+      kind: r.kind,
+      first_name: cl(r.first_name, 'first_name'),
+      last_name: cl(r.last_name, 'last_name'),
+      birth_date: cl(r.birth_date, 'birth_date'),
+      death_date: cl(r.death_date, 'death_date'),
+      is_deceased: !!r.is_deceased,
+      birth_country: /^[A-Z]{2}$/.test(String(r.birth_country || '')) ? r.birth_country : null,
+      birth_province: cl(r.birth_province, 'birth_province'),
+      birth_city: cl(r.birth_city, 'birth_city'),
+      birth_place: cl(r.birth_place, 'birth_place'),
+      residence_country: /^[A-Z]{2}$/.test(String(r.residence_country || '')) ? r.residence_country : null,
+      residence_province: cl(r.residence_province, 'residence_province'),
+      residence_city: cl(r.residence_city, 'residence_city'),
+      phone: validPhone(r.phone) ? String(r.phone).trim() : null,
+      email: validEmail(r.email) ? String(r.email).trim().toLowerCase() : null,
+      notes: cl(r.notes, 'notes'),
+    });
+  }
+  if (infoSkipped) warnings.push(`${infoSkipped} صفًا من جداول معلومات النساء أُهمل (صاحبته غير موجودة في الملف أو ليست أنثى، أو صفّه ناقص).`);
+
   return {
     personRows,
     marriageRows,
+    infoRows,
     warnings,
-    stats: { persons: personRows.length, marriages: marriageRows.length },
+    stats: { persons: personRows.length, marriages: marriageRows.length, info: infoRows.length },
   };
 }
 

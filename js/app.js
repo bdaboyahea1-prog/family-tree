@@ -3032,7 +3032,7 @@ function openImport() {
       const model = text.trimStart().startsWith('{') ? fromJson(text) : fromGedcom(text);
       plan = planImport(model);
       put(preview, 
-        h('div', { class: 'notice' }, h('strong', { text: `سيُضاف ${plan.stats.persons} شخصًا و${plan.stats.marriages} سجل زواج.` })),
+        h('div', { class: 'notice' }, h('strong', { text: `سيُضاف ${plan.stats.persons} شخصًا و${plan.stats.marriages} سجل زواج${plan.stats.info ? ` و${plan.stats.info} صفًا في جداول معلومات أبناء النساء` : ''}.` })),
         ...plan.warnings.map((w) => h('p', { class: 'muted small-note', text: `• ${w}` })),
         h('p', { class: 'muted small-note', text: `الشجرة الحالية فيها ${state.persons.size} شخصًا. لا يُحذف شيء ولا يُدمج: إن كان الملف يحوي أشخاصًا موجودين أصلًا فسيظهرون مرتين.` }),
         h('label', { class: 'check', for: 'imp-ok' }, confirmBox_, 'أفهم ذلك وأريد إضافتهم إلى هذه الشجرة'),
@@ -3049,9 +3049,11 @@ function openImport() {
       const fill = bar.firstChild;
       const pChunks = chunk(plan.personRows);
       const mChunks = chunk(plan.marriageRows);
-      const total = pChunks.length + mChunks.length;
+      const iChunks = chunk(plan.infoRows || []);
+      const total = pChunks.length + mChunks.length + iChunks.length;
       let done = 0;
       let added = 0;
+      let infoAdded = 0;
       try {
         for (const part of pChunks) {
           const { error } = await sb.from('persons').insert(part.map((r) => ({ tree_id: state.treeId, ...r })));
@@ -3065,6 +3067,20 @@ function openImport() {
           if (error) throw error;
           fill.style.width = `${(++done / total) * 100}%`;
         }
+        // the information tables of the women's cards: the database accepts them only while the tree is on the «information only» rule
+        if (iChunks.length) {
+          if (femaleMode() !== 'info' && (await confirmBox('جداول معلومات النساء', 'الملف فيه معلومات عن أبناء النساء، ولا تُحفظ إلا إذا كانت قاعدة الشجرة «السماح بإضافة معلومات فقط». هل تغيّر القاعدة الآن؟ (تسري على كل الأعضاء، وتغيّرها لاحقًا من الإعدادات.)', 'غيّرها الآن'))) await setFemaleMode('info');
+          if (femaleMode() === 'info') {
+            for (const part of iChunks) {
+              const { error } = await sb.from('card_info').insert(part.map((r) => ({ tree_id: state.treeId, ...r })));
+              if (error) throw error;
+              infoAdded += part.length;
+              fill.style.width = `${(++done / total) * 100}%`;
+            }
+          } else {
+            toast('لم تُحفظ معلومات أبناء النساء لأن القاعدة ليست «معلومات فقط».', true);
+          }
+        }
       } catch (ex) {
         await loadTreeData();
         rebuild();
@@ -3073,7 +3089,7 @@ function openImport() {
       await loadTreeData();
       rebuild();
       chart.focusTop();
-      toast(`تم استيراد ${plan.stats.persons} شخصًا`);
+      toast(`تم استيراد ${plan.stats.persons} شخصًا${infoAdded ? ` و${infoAdded} صفًا من معلومات أبناء النساء` : ''}`);
       dlg.close();
     }).finally(() => {
       file.disabled = false;
