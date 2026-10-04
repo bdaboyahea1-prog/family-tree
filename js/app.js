@@ -3266,7 +3266,7 @@ function mountMain(treeName) {
   };
   syncThemeBtn();
 
-  const chatBadges = [0, 1, 2].map(() => h('span', { class: 'badge-dot', hidden: true })); // the toolbar's, the phone bar's, the zoom column's
+  const chatBadges = [h('span', { class: 'badge-dot', hidden: true })]; // the chat button is only in the zoom column (not in the top bar, not in the phone's bottom bar)
   const chatOn = hasBackend() && !OFFLINE;
   const bellBadge = h('span', { class: 'badge-dot', hidden: true });
   const bell = h('button', { class: 'tb-btn bell', type: 'button', 'aria-label': 'صندوق الوارد', title: 'صندوق الوارد: طلبات الصلاحية وبلاغات الأخطاء', onclick: openInbox }, icon('bell'), h('span', { class: 'lbl', text: 'الوارد' }), bellBadge);
@@ -3284,7 +3284,6 @@ function mountMain(treeName) {
       chart.focusTop();
     }),
     navBtn('filter', 'بحث', openSearchPage),
-    chatOn && navBtn('chat', 'الدردشة', openChat, chatBadges[1]),
     (!DEMO || FAKE_BACKEND) && navBtn('users', 'المشاركة', openShare),
     hasBackend() && navBtn('bell', 'الوارد', openInbox, navBadge),
     navBtn('menu', 'المزيد', openMore),
@@ -3301,7 +3300,7 @@ function mountMain(treeName) {
     zoomBtn('fit', 'عرض الكل', () => chart.fit(), 'عرض الشجرة كاملة'),
     zoomBtn('home', 'الجذر', () => state.index.list.length && setRoot(defaultRoot(state.index)), 'العودة إلى جذر الشجرة'),
     zoomBtn('refresh', OFFLINE ? 'اتصال' : 'تحديث', refreshApp, 'تحديث: أحدث نسخة من البرنامج وأحدث بيانات الشجرة'),
-    chatOn && zoomBtn('chat', 'الدردشة', openChat, 'الدردشة العائلية').appendChild(chatBadges[2]).parentNode, // under the refresh button, with the count of unread messages
+    chatOn && zoomBtn('chat', 'الدردشة', openChat, 'الدردشة العائلية').appendChild(chatBadges[0]).parentNode, // under the refresh button, with the count of unread messages
   );
   zoom.hidden = true;
 
@@ -3339,7 +3338,6 @@ function mountMain(treeName) {
         { class: 'tb-actions' },
         hasBackend() && bell,
         tbBtn('filter', 'بحث وتصفية', openSearchPage, 'بحث وتصفية (بالاسم أو البلد أو المدينة)'),
-        chatOn && h('button', { class: 'tb-btn bell', type: 'button', title: 'الدردشة العائلية', 'aria-label': 'الدردشة العائلية', onclick: openChat }, icon('chat'), h('span', { class: 'lbl', text: 'الدردشة' }), chatBadges[0]),
         (!DEMO || FAKE_BACKEND) && tbBtn('users', 'المشاركة', openShare, 'المشاركة والأعضاء'),
         (!DEMO || FAKE_BACKEND) && tbBtn('history', 'السجل', openHistory, 'سجل التعديلات'),
         tbBtn('printer', 'طباعة', printTree, 'طباعة الشجرة المعروضة'),
