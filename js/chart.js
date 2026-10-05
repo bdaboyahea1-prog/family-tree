@@ -1,6 +1,6 @@
 // Draws a laid-out tree (see tree.js) and handles pan / pinch / wheel zoom / taps.
-import { fullName, lifeSpan, generationName, polar, SPOUSE_COLORS } from './tree.js';
-import { genderIcon } from './gender.js';
+import { fullName, lifeSpan, ageOf, isDead, generationName, polar, SPOUSE_COLORS } from './tree.js';
+import { genderIcon, graveIcon } from './gender.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const MIN_K = 0.08; // the smallest zoom: a big family can be seen whole, as a map, on a phone
@@ -67,6 +67,18 @@ export function makeCard(p, { photo = null, actions = false, canAdd = false, nam
   if (p.nickname) txt.append(el('div', 'nick', p.nickname)); // the name he / she is known by, right under the name
   txt.append(el('div', 'yr', lifeSpan(p))); // empty when nothing is known: some looks still draw the strip
   node.append(avatar, txt);
+  // the state (top left: a green circle, or a gravestone) and the age (top right, a bubble above the card); css can hide both
+  const dead = isDead(p);
+  const state = el('span', `state ${dead ? 'dead' : 'alive'}`);
+  state.title = dead ? 'متوفى' : 'على قيد الحياة';
+  if (dead) state.append(graveIcon());
+  node.append(state);
+  const age = ageOf(p);
+  if (age) {
+    const tag = el('div', 'age-tag', `${age.n} سنة`);
+    tag.title = `${dead ? 'العمر عند الوفاة' : 'العمر'}${age.exact ? '' : ' (تقريبي: محسوب من سنة الميلاد فقط)'}`;
+    node.append(tag);
+  }
   if (actions) node.append(makeActions(p, canAdd));
   return node;
 }
@@ -303,6 +315,7 @@ export class Chart {
     Object.assign(this.options, o);
     this.stage.classList.toggle('colored', this.options.colors);
     this.stage.classList.toggle('no-years', !this.options.years);
+    this.stage.classList.toggle('no-age', this.options.showAge === false); // (a card is drawn with both marks; the switch only hides them)
     this.stage.dataset.card = this.options.cardStyle; // CSS hook: one block of rules per look of the card
     this.#syncLegend();
   }

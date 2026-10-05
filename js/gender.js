@@ -9,6 +9,19 @@ const SHAPES = {
   female: ['<circle cx="12" cy="6.2" r="3.4"/>', '<path d="M12 11c-1.9 0-3 1.1-3.6 2.7L5.7 21h12.6l-2.7-7.3C15 12.1 13.9 11 12 11z"/>'],
 };
 
+/** A small gravestone (a rounded stone with two lines, on a mound): the mark of a person who has died. */
+export function graveIcon() {
+  const s = document.createElementNS(SVGNS, 'svg');
+  s.setAttribute('viewBox', '0 0 24 28');
+  s.setAttribute('class', 'grave-icon');
+  s.setAttribute('aria-hidden', 'true');
+  s.innerHTML =
+    '<ellipse class="g-mound" cx="12" cy="24" rx="11" ry="3.4"/>' +
+    '<path class="g-stone" d="M5 24V10.5a7 7 0 0 1 14 0V24z"/>' +
+    '<path class="g-line" d="M8.5 11h7M8.5 15h7"/>';
+  return s;
+}
+
 /** An <svg> element for 'male' or 'female' (anything else is drawn as a man). */
 export function genderIcon(gender) {
   const s = document.createElementNS(SVGNS, 'svg');

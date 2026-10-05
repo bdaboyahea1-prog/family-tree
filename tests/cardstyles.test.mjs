@@ -63,3 +63,14 @@ assert.equal(wide.cards[0].w, 260);
 assert.equal(wide.cards[0].h, 52);
 
 console.log('CARD STYLES OK');
+
+// the age bubble needs room above the card: the card box grows by what is missing, and never shrinks
+import { AGE_HEAD } from '../js/cardstyles.js';
+for (const s of CARD_STYLES) {
+  const plain = cardMetrics(s.id, { nick: false, acts: true, years: true });
+  const withAge = cardMetrics(s.id, { nick: false, acts: true, years: true, age: true });
+  assert.ok(withAge.head >= AGE_HEAD, `${s.id}: room for the bubble above the card`);
+  assert.equal(withAge.cardH - withAge.head, plain.cardH - plain.head, `${s.id}: the card itself keeps its height`);
+  assert.ok(withAge.head >= plain.head && withAge.cardH >= plain.cardH, `${s.id}: nothing shrinks`);
+}
+console.log('CARD STYLES AGE OK');

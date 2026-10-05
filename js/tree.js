@@ -50,6 +50,49 @@ export function yearOf(text) {
   return m ? Number(m[1]) : null;
 }
 
+/**
+ * Day / month / year of a date written as free text, only as far as it is written: "1950" -> year only, "1950-03" -> year and
+ * month, "12/03/1950" (day first) and "1950-03-12" -> all three. Null when there is no four-digit year.
+ */
+export function parseDate(text) {
+  const t = toLatinDigits(text);
+  const ok = (mo, d) => mo >= 1 && mo <= 12 && (d == null || (d >= 1 && d <= 31));
+  let m = t.match(/(\d{4})[-./](\d{1,2})(?:[-./](\d{1,2}))?/);
+  if (m && ok(+m[2], m[3] ? +m[3] : null)) return { y: +m[1], m: +m[2], d: m[3] ? +m[3] : null };
+  m = t.match(/(\d{1,2})[-./](\d{1,2})[-./](\d{4})/);
+  if (m && ok(+m[2], +m[1])) return { y: +m[3], m: +m[2], d: +m[1] };
+  m = t.match(/(?:^|\D)(\d{1,2})[-./](\d{4})/);
+  if (m && ok(+m[1], null)) return { y: +m[2], m: +m[1], d: null };
+  const y = yearOf(t);
+  return y ? { y, m: null, d: null } : null;
+}
+
+/** Is this person dead? Marked so, or with a death year. */
+export const isDead = (p) => !!(p.is_deceased || yearOf(p.death_date));
+
+/**
+ * The age shown on a card: { n, exact } or null.
+ *   living    : as of this month (the birthday month counts); with only the year of birth it is this year minus that year,
+ *               which can be one too many before the birthday (exact: false)
+ *   deceased  : the age at death, when the year of death is known; no number otherwise
+ */
+export function ageOf(p, now = new Date()) {
+  const b = parseDate(p.birth_date);
+  if (!b) return null;
+  let ref;
+  if (isDead(p)) {
+    ref = parseDate(p.death_date);
+    if (!ref) return null;
+  } else {
+    ref = { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() };
+  }
+  let n = ref.y - b.y;
+  const exact = b.m != null && ref.m != null;
+  if (exact && ref.m < b.m) n--; // the month of the birthday has not come yet
+  if (exact && ref.m === b.m && b.d && ref.d && ref.d < b.d && isDead(p)) n--; // for the dead both days are known: exact to the day
+  return n >= 0 && n <= 125 ? { n, exact } : null;
+}
+
 /** Lower-case, strip diacritics and unify Arabic letter variants so search is forgiving. */
 export function normalize(s) {
   return (

@@ -36,7 +36,11 @@ export const DEFAULT_CARD_STYLE = 'portrait';
 export const isCardStyle = (id) => CARD_STYLES.some((s) => s.id === id);
 
 /** The size of every card for a look: { cardW, cardH, head }. cardH counts the part that rises above the top edge. */
-export function cardMetrics(id, { nick = false, acts = true, years = true } = {}) {
+/** The room above a card for the age bubble (the looks whose figure rises higher already have more). */
+export const AGE_HEAD = 22;
+
+export function cardMetrics(id, { nick = false, acts = true, years = true, age = false } = {}) {
   const s = CARD_STYLES.find((x) => x.id === id) || CARD_STYLES.find((x) => x.id === DEFAULT_CARD_STYLE);
-  return { cardW: s.w, cardH: s.head + s.body({ nick, acts, years }), head: s.head };
+  const head = Math.max(s.head, age ? AGE_HEAD : 0);
+  return { cardW: s.w, cardH: head + s.body({ nick, acts, years }), head };
 }

@@ -1036,3 +1036,26 @@ html.js .boot-loading { display: grid; min-height: 100vh; }
 .chat-compose { display: flex; gap: 8px; align-items: flex-end; }
 .chat-input { flex: 1; min-width: 0; resize: none; max-height: 140px; }
 @media (max-height: 560px) { .chat-list { max-height: 40vh; min-height: 120px; } }
+
+/* the age bubble (top right, above the card, its tail towards the card) and the state mark (top left) */
+.card .age-tag {
+  position: absolute; top: -19px; right: 6px; z-index: 2; padding: 1px 9px; border-radius: 12px; white-space: nowrap;
+  background: #2a8f9a; color: #fff; font-size: 12px; font-weight: 800; line-height: 1.55; pointer-events: none; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.18);
+}
+.card .age-tag::after { content: ''; position: absolute; top: 100%; right: 9px; border: 5px solid transparent; border-top-color: #2a8f9a; border-bottom-width: 0; }
+.card.deceased .age-tag { background: #7c837f; }
+.card.deceased .age-tag::after { border-top-color: #7c837f; }
+.card .state { position: absolute; top: 6px; left: 6px; z-index: 2; display: block; } /* physical sides: the age at the top right, the state at the top left (the page is right-to-left) */
+.card .state.alive { width: 14px; height: 14px; border-radius: 50%; background: #2fa35f; box-shadow: 0 0 0 2px var(--surface); }
+.card .state.dead { width: 22px; height: 26px; }
+.grave-icon { display: block; width: 100%; height: 100%; }
+.grave-icon .g-mound { fill: #7d8f6b; }
+.grave-icon .g-stone { fill: #a3aaa7; stroke: #6d7673; stroke-width: 1.6; }
+.grave-icon .g-line { fill: none; stroke: #79827f; stroke-width: 1.4; stroke-linecap: round; }
+/* three looks clipped their card (overflow: hidden) only to round their corners: that is not needed, and it would cut the bubble above the card */
+[data-card="header"] .card, [data-card="id"] .card, [data-card="medal"] .card { overflow: visible; }
+[data-card="id"] .card .avatar { border-start-start-radius: 9px; border-end-start-radius: 9px; } /* the photo panel keeps the rounded corners of the card */
+/* looks whose top-left corner is busy (the coloured strip of the name, the round button): the state mark sits half outside the corner */
+[data-card="header"] .card .state, [data-card="medal"] .card .state, [data-card="id"] .card .state, [data-card="pill"] .card .state { top: -7px; left: -7px; }
+.stage.no-age .card .age-tag, .stage.no-age .card .state { display: none; }
+@media (max-width: 600px) { .stage.far .card .age-tag, .stage.far .card .state { display: none; } } /* the tree far away: names only */

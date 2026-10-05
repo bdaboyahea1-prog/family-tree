@@ -1861,7 +1861,7 @@ const ORIENTATION = { classic: 'vertical', horizontal: 'horizontal', fan: 'fan',
 /** Card size: it depends on the look and on what a card holds (a nickname line when anybody has one, the years, the two buttons). */
 function cardSize() {
   const nick = [...state.persons.values()].some((p) => p.nickname);
-  return { ...SIZE, ...cardMetrics(state.cardStyle, { nick, acts: state.cardButtons, years: state.showYears }) };
+  return { ...SIZE, ...cardMetrics(state.cardStyle, { nick, acts: state.cardButtons, years: state.showYears, age: state.showAge }) };
 }
 
 function rebuild() {
@@ -1886,7 +1886,7 @@ function rebuild() {
     : null;
   if (state.layout) state.layout.genOffset = lineAncestorsOf(idx, state.rootId).size - 1; // generations above the root
   if (state.selectedId && !idx.byId.has(state.selectedId)) state.selectedId = null;
-  chart.configure({ bands: state.bands && state.design === 'classic', colors: state.branchColors, years: state.showYears, curves: state.curves, actions: state.cardButtons, cardStyle: state.cardStyle, wifeColors: state.wifeColors && state.showFemales });
+  chart.configure({ bands: state.bands && state.design === 'classic', colors: state.branchColors, years: state.showYears, showAge: state.showAge, curves: state.curves, actions: state.cardButtons, cardStyle: state.cardStyle, wifeColors: state.wifeColors && state.showFemales });
   chart.render(state.layout, state.selectedId);
   scheduleSnapshot();
   syncPhotos();
@@ -2354,6 +2354,7 @@ function displayName(p) {
 }
 const setBranchColors = (on) => setLook('branchColors', on);
 const setShowYears = (on) => setLook('showYears', on);
+const setShowAge = (on) => setLook('showAge', on);
 const setCurves = (on) => setLook('curves', on);
 const setCardButtons = (on) => setLook('cardButtons', on);
 const setBands = (on) => setLook('bands', on);
@@ -2913,6 +2914,12 @@ function openSettings() {
           desc: 'تظهر سنة الميلاد والوفاة بوضوح في كل بطاقة، تحت الاسم (واللقب إن وُجد). وعند الإيقاف تصغر البطاقات قليلًا.',
           checked: state.showYears,
           onChange: setShowYears,
+        }),
+        settingRow({
+          title: 'العمر وعلامة الحياة على البطاقة',
+          desc: 'فقاعة العمر فوق البطاقة (محسوبة من تاريخ الميلاد حتى هذا الشهر، وللمتوفى عمره عند الوفاة)، ودائرة خضراء للحي وشاهد قبر للمتوفى. من سنة الميلاد وحدها قد يزيد العمر سنة قبل عيد الميلاد.',
+          checked: state.showAge,
+          onChange: setShowAge,
         }),
         settingRow({
           title: 'خطوط منحنية',
