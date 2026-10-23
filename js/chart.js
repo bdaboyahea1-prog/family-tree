@@ -318,6 +318,7 @@ export class Chart {
     this.stage.classList.toggle('no-years', !this.options.years);
     this.stage.style.setProperty('--ns', String(this.options.nameScale ?? 1)); // css: the name font = its base size x --ns
     this.stage.style.setProperty('--hdr', `${this.options.headerH ?? 46}px`); // css: the coloured strip of the «header» look
+    this.stage.style.setProperty('--cw', `${this.options.cardW ?? 172}px`); // css: the width of a card (the far view keeps the first name inside it)
     this.stage.classList.toggle('no-age', this.options.showAge === false); // (a card is drawn with both marks; the switch only hides them)
     this.stage.dataset.card = this.options.cardStyle; // CSS hook: one block of rules per look of the card
     this.#syncLegend();

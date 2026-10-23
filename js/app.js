@@ -1887,7 +1887,7 @@ function rebuild() {
     : null;
   if (state.layout) state.layout.genOffset = lineAncestorsOf(idx, state.rootId).size - 1; // generations above the root
   if (state.selectedId && !idx.byId.has(state.selectedId)) state.selectedId = null;
-  chart.configure({ bands: state.bands && state.design === 'classic', colors: state.branchColors, years: state.showYears, showAge: state.showAge, nameScale: size.ns, headerH: size.hdr, curves: state.curves, actions: state.cardButtons, cardStyle: state.cardStyle, wifeColors: state.wifeColors && state.showFemales });
+  chart.configure({ bands: state.bands && state.design === 'classic', colors: state.branchColors, years: state.showYears, showAge: state.showAge, nameScale: size.ns, headerH: size.hdr, cardW: size.cardW, curves: state.curves, actions: state.cardButtons, cardStyle: state.cardStyle, wifeColors: state.wifeColors && state.showFemales });
   chart.render(state.layout, state.selectedId);
   scheduleSnapshot();
   syncPhotos();
