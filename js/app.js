@@ -1861,7 +1861,7 @@ const ORIENTATION = { classic: 'vertical', horizontal: 'horizontal', fan: 'fan',
 /** Card size: it depends on the look and on what a card holds (a nickname line when anybody has one, the years, the two buttons). */
 function cardSize() {
   const nick = [...state.persons.values()].some((p) => p.nickname);
-  return { ...SIZE, ...cardMetrics(state.cardStyle, { nick, acts: state.cardButtons, years: state.showYears, age: state.showAge }) };
+  return { ...SIZE, ...cardMetrics(state.cardStyle, { nick, acts: state.cardButtons, years: state.showYears, age: state.showAge, size: state.nameSize }) };
 }
 
 function rebuild() {
@@ -1874,11 +1874,12 @@ function rebuild() {
     state.collapsed = autoCollapse(idx, state.rootId);
   }
   const hideFemales = !state.showFemales; // the male line only: women and what hangs under them are left out
+  const size = cardSize();
   const hier = state.rootId ? buildHierarchy(idx, state.rootId, state.collapsed, hideFemales ? { hide: (p) => p.gender === 'female' } : {}) : null;
   state.layout = hier
     ? layout(hier, {
         rtl: true,
-        size: cardSize(),
+        size,
         orientation: ORIENTATION[state.design],
         // wives are written under the cards of the two card designs only
         lines: state.showWives && !hideFemales && (state.design === 'classic' || state.design === 'horizontal') ? (id) => spouseLines(idx, idx.byId.get(id)) : null,
@@ -1886,7 +1887,7 @@ function rebuild() {
     : null;
   if (state.layout) state.layout.genOffset = lineAncestorsOf(idx, state.rootId).size - 1; // generations above the root
   if (state.selectedId && !idx.byId.has(state.selectedId)) state.selectedId = null;
-  chart.configure({ bands: state.bands && state.design === 'classic', colors: state.branchColors, years: state.showYears, showAge: state.showAge, curves: state.curves, actions: state.cardButtons, cardStyle: state.cardStyle, wifeColors: state.wifeColors && state.showFemales });
+  chart.configure({ bands: state.bands && state.design === 'classic', colors: state.branchColors, years: state.showYears, showAge: state.showAge, nameScale: size.ns, headerH: size.hdr, curves: state.curves, actions: state.cardButtons, cardStyle: state.cardStyle, wifeColors: state.wifeColors && state.showFemales });
   chart.render(state.layout, state.selectedId);
   scheduleSnapshot();
   syncPhotos();
@@ -2355,6 +2356,7 @@ function displayName(p) {
 const setBranchColors = (on) => setLook('branchColors', on);
 const setShowYears = (on) => setLook('showYears', on);
 const setShowAge = (on) => setLook('showAge', on);
+const setNameSize = (v) => setLook('nameSize', v);
 const setCurves = (on) => setLook('curves', on);
 const setCardButtons = (on) => setLook('cardButtons', on);
 const setBands = (on) => setLook('bands', on);
@@ -2884,6 +2886,9 @@ function openSettings() {
       designChooser(),
       h('div', { class: 'sub-title', text: 'شكل البطاقة' }),
       cardStyleChooser(),
+      h('div', { class: 'sub-title', text: 'حجم الاسم على البطاقة' }),
+      choiceGroup('حجم الاسم على البطاقة', [['normal', 'عادي'], ['large', 'كبير'], ['xlarge', 'كبير جدًا']], state.nameSize, setNameSize),
+      h('p', { class: 'muted small-note', text: 'الاسم الأكبر يجعل البطاقات أوسع وأعلى قليلًا، فتتباعد في الشجرة. والأسماء الطويلة تنزل إلى سطرين.' }),
       h('div', { class: 'sub-title', text: 'سمة الألوان' }),
       choiceGroup('سمة الألوان', [['auto', 'تلقائي (حسب الجهاز)'], ['light', 'فاتح'], ['dark', 'داكن']], state.theme, setTheme),
       h('p', { class: 'muted small-note', text: 'هذا الخيار لك وحدك دائمًا (حتى للمدير). وفي الشريط العلوي زر الشمس والقمر للتبديل السريع بين الفاتح والداكن.' }),

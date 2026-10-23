@@ -223,7 +223,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .avatar img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .txt { min-width: 0; }
 .nm {
-  font-weight: 700; font-size: 14px; line-height: 1.3;
+  font-weight: 700; font-size: calc(14px * var(--ns, 1)); line-height: 1.3;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .yr { font-size: 12px; color: var(--muted); }
@@ -272,12 +272,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 /* 2 header: the name on a coloured strip */
 [data-card="header"] .card {
   overflow: hidden; align-content: start; padding: 0 10px 10px;
-  background: linear-gradient(var(--gender) 0 46px, var(--surface) 46px);
-  grid-template-columns: 30px minmax(0, 1fr); grid-template-rows: 46px auto auto auto;
+  background: linear-gradient(var(--gender) 0 var(--hdr, 46px), var(--surface) var(--hdr, 46px));
+  grid-template-columns: 30px minmax(0, 1fr); grid-template-rows: var(--hdr, 46px) auto auto auto;
 }
 [data-card="header"] .card .avatar { grid-column: 1; grid-row: 1; align-self: center; width: 22px; height: 22px; background: transparent; color: var(--on-gender); }
 [data-card="header"] .card .txt { display: contents; }
-[data-card="header"] .card .nm { grid-column: 2; grid-row: 1; align-self: center; color: var(--on-gender); font-size: 13.5px; line-height: 1.25; }
+[data-card="header"] .card .nm { grid-column: 2; grid-row: 1; align-self: center; color: var(--on-gender); font-size: calc(13.5px * var(--ns, 1)); line-height: 1.25; }
 [data-card="header"] .card .nick { grid-column: 1 / -1; grid-row: 2; margin-top: 8px; text-align: center; }
 [data-card="header"] .card .yr { grid-column: 1 / -1; grid-row: 3; justify-self: center; }
 [data-card="header"] .card .acts { grid-column: 1 / -1; grid-row: 4; margin-top: 8px; }
@@ -337,7 +337,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 [data-card="pill"] .card { align-items: center; border-radius: 999px; padding: 4px 6px 4px 12px; column-gap: 6px; grid-template-columns: 32px minmax(0, 1fr) auto auto; }
 [data-card="pill"] .card .avatar { width: 32px; height: 32px; }
 [data-card="pill"] .card .txt { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; }
-[data-card="pill"] .card .nm { grid-column: 1 / -1; font-size: 13px; -webkit-line-clamp: 1; }
+[data-card="pill"] .card .nm { grid-column: 1 / -1; font-size: calc(13px * var(--ns, 1)); -webkit-line-clamp: 1; }
 [data-card="pill"] .card .nick { font-size: 11px; margin-inline-end: 6px; }
 [data-card="pill"] .card .yr { margin: 0; padding: 0; border: 0; background: none; font-size: 11px; font-weight: 600; color: var(--muted); justify-self: start; }
 [data-card="pill"] .card .acts { display: contents; }

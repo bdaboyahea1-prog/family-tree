@@ -25,6 +25,7 @@ const RULES = {
   wifeColors: bool, // a man with several wives: a circle in a colour by each wife, the same colour on her children
   tripleName: bool, // the name on a card: first name + father's name + family
   showAge: bool, // the age above a card, a green circle for the living and a gravestone for the dead
+  nameSize: (v) => ['normal', 'large', 'xlarge'].includes(v), // how big the name is written on a card
 };
 
 export const LOOK_KEYS = Object.keys(RULES);
@@ -43,6 +44,7 @@ export const FACTORY_LOOK = Object.freeze({
   wifeColors: true,
   tripleName: true,
   showAge: true,
+  nameSize: 'xlarge',
 });
 
 /** Only the known keys with allowed values; anything else (also from an old or damaged record) is dropped. */

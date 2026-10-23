@@ -29,7 +29,7 @@ for (const s of CARD_STYLES) {
 }
 assert.equal(cardMetrics('portrait', all).head, 26, 'the figure rises 26px above the card');
 assert.ok(CARD_STYLES.filter((s) => s.id !== 'portrait').every((s) => cardMetrics(s.id, all).head === 0), 'only that look has a part above the card');
-assert.deepEqual(cardMetrics('pill', all), { cardW: 260, cardH: 52, head: 0 });
+assert.deepEqual(cardMetrics('pill', all), { cardW: 260, cardH: 52, head: 0, ns: 1, hdr: 46 });
 assert.deepEqual(cardMetrics('nonsense', all), cardMetrics(DEFAULT_CARD_STYLE, all), 'an unknown name falls back to the default look');
 assert.ok(cardMetrics('portrait', { ...all, nick: false, acts: false, years: false }).cardH >= 26 + 36 + 8 + 30, 'name, strip and room for the figure');
 
@@ -74,3 +74,19 @@ for (const s of CARD_STYLES) {
   assert.ok(withAge.head >= plain.head && withAge.cardH >= plain.cardH, `${s.id}: nothing shrinks`);
 }
 console.log('CARD STYLES AGE OK');
+
+// the size of the name: a bigger name makes the card wider and taller, never smaller; 'normal' is the old size
+import { NAME_SCALES } from '../js/cardstyles.js';
+assert.deepEqual(Object.keys(NAME_SCALES), ['normal', 'large', 'xlarge']);
+for (const s of CARD_STYLES) {
+  const n = cardMetrics(s.id, { ...all, size: 'normal' });
+  const l = cardMetrics(s.id, { ...all, size: 'large' });
+  const x = cardMetrics(s.id, { ...all, size: 'xlarge' });
+  assert.deepEqual(n, cardMetrics(s.id, all), `${s.id}: normal is the size every card had before`);
+  assert.ok(l.cardW > n.cardW && x.cardW > l.cardW, `${s.id}: a bigger name, a wider card`);
+  assert.ok(l.cardH >= n.cardH && x.cardH >= l.cardH, `${s.id}: ...and never a lower one`);
+  assert.equal(l.head, n.head, `${s.id}: the part above the card does not change`);
+}
+assert.equal(cardMetrics('header', { ...all, size: 'xlarge' }).hdr, 46 + 20, 'the coloured strip of the header look grows with the name');
+assert.equal(cardMetrics('portrait', { ...all, size: 'bogus' }).cardW, cardMetrics('portrait', all).cardW, 'an unknown size is the normal one');
+console.log('CARD STYLES NAME SIZE OK');
