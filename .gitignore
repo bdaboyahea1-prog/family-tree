@@ -4,3 +4,7 @@ node_modules/
 *.xlsx
 .DS_Store
 Thumbs.db
+
+# Windows / Google Drive folder icons: never part of the project
+desktop.ini
+Desktop.ini
