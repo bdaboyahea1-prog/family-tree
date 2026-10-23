@@ -1059,8 +1059,8 @@ html.js .boot-loading { display: grid; min-height: 100vh; }
 /* the tree far away (a phone, a tablet, a computer: any screen): a card shows only a big first name, the details are left out */
 .stage .card .nm-far { display: none; font-weight: 700; text-align: center; line-height: 1.15; }
 .stage.far .card .nm, .stage.far .card .nick, .stage.far .card .acts, .stage.far .wives, .stage.far .card .age-tag, .stage.far .card .state { display: none; }
-/* the first name: about 15px ON THE SCREEN whatever the zoom (so 15 / zoom inside the tree), but never more than about a quarter of the card width; one line */
+/* the first name: about 13px ON THE SCREEN whatever the zoom (so 13 / zoom inside the tree), but never more than about a quarter of the card width; one line */
 .stage.far .card .nm-far {
-  display: block; font-size: min(calc(15px / var(--k, 1)), calc(var(--cw, 172px) * 0.26)); line-height: 1.2;
+  display: block; font-size: min(calc(13px / var(--k, 1)), calc(var(--cw, 172px) * 0.26)); line-height: 1.2;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
