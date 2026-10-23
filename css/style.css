@@ -943,7 +943,7 @@ dialog.modal::backdrop { background: rgba(10, 16, 13, 0.55); }
 
 
 /* ---------- the phone: a bar at the foot, simpler cards when the tree is far, the "more" list ---------- */
-.bottom-nav, .nm-far { display: none; } /* the bar and the big first name exist for phones only */
+.bottom-nav, .nm-far { display: none; } /* the bar exists for phones only; the big first name only when the tree is zoomed far out (below) */
 @media (max-width: 600px) {
   .tb-actions { display: none; } /* its buttons are in the bar below and in "المزيد" */
   .bottom-nav {
@@ -965,9 +965,6 @@ dialog.modal::backdrop { background: rgba(10, 16, 13, 0.55); }
   .more-item:active { background: var(--accent-soft); }
 
   /* the tree far away: names, not details (the buttons cannot be tapped at that size anyway) */
-  .stage .card .nm-far { display: none; font-weight: 700; text-align: center; line-height: 1.15; }
-  .stage.far .card .nm, .stage.far .card .nick, .stage.far .card .acts, .stage.far .wives { display: none; }
-  .stage.far .card .nm-far { display: block; font-size: min(calc(11px / var(--k, 1)), 38px); }
 }
 
 /* a button for touch screens (phones, tablets) only */
@@ -1058,4 +1055,8 @@ html.js .boot-loading { display: grid; min-height: 100vh; }
 /* looks whose top-left corner is busy (the coloured strip of the name, the round button): the state mark sits half outside the corner */
 [data-card="header"] .card .state, [data-card="medal"] .card .state, [data-card="id"] .card .state, [data-card="pill"] .card .state { top: -7px; left: -7px; }
 .stage.no-age .card .age-tag, .stage.no-age .card .state { display: none; }
-@media (max-width: 600px) { .stage.far .card .age-tag, .stage.far .card .state { display: none; } } /* the tree far away: names only */
+
+/* the tree far away (a phone, a tablet, a computer: any screen): a card shows only a big first name, the details are left out */
+.stage .card .nm-far { display: none; font-weight: 700; text-align: center; line-height: 1.15; }
+.stage.far .card .nm, .stage.far .card .nick, .stage.far .card .acts, .stage.far .wives, .stage.far .card .age-tag, .stage.far .card .state { display: none; }
+.stage.far .card .nm-far { display: block; font-size: min(calc(11px / var(--k, 1)), 38px); }
