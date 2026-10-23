@@ -5,6 +5,7 @@ import { genderIcon, graveIcon } from './gender.js';
 const SVGNS = 'http://www.w3.org/2000/svg';
 const MIN_K = 0.08; // the smallest zoom: a big family can be seen whole, as a map, on a phone
 const FIT_MIN_K = MIN_K; // the first view shows the whole tree whenever "عرض الكل" could (it cannot go below the smallest zoom)
+const FAR_K = 0.6; // below this zoom (60%) the tree is "far": a card shows only a big first name (the choice of the family)
 const MAX_K = 2.5;
 
 const wifeColor = (i) => SPOUSE_COLORS[i % SPOUSE_COLORS.length];
@@ -410,7 +411,7 @@ export class Chart {
     this._k = this.k;
     this.stage.style.transform = `translate(${this.tx}px, ${this.ty}px) scale(${this.k})`;
     this.stage.style.setProperty('--k', this.k.toFixed(3));
-    this.stage.classList.toggle('far', this.k < 0.45); // css (phones): far out, a card shows only a big first name
+    this.stage.classList.toggle('far', this.k < FAR_K); // css: far out, a card shows only a big first name
     this.#placeLabels();
     clearTimeout(this._still);
     // A layer that the browser keeps ready for moving is drawn once, at the size it had, and a zoom only stretches that
