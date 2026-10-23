@@ -184,6 +184,41 @@ export class Chart {
     const frag = document.createDocumentFragment();
     for (const c of result.cards) frag.append(this.#card(c));
     this.stage.append(frag);
+    this._fitted = false; // the first names are fitted to their cards when the tree is far out (see #fitNames)
+    if (this.k < FAR_K) this.#fitNames();
+  }
+
+  /**
+   * The far view writes only the first name, as big as the zoom allows but never wider than the room it has on its card: here the
+   * biggest size at which each name fits is measured once, and css takes the smaller of that and the size the zoom asks for (--fit).
+   */
+  #fitNames() {
+    const names = this.stage.querySelectorAll('.card .nm-far');
+    if (!names.length) return;
+    // the room a name really has on its card (it differs from look to look): the width of the first name's box when it is let to fill
+    // its place, tiny so that it does not push anything; every card of the tree has the same room
+    const first = names[0];
+    const wasFar = this.stage.classList.contains('far');
+    this.stage.classList.add('far'); // the names are hidden until the tree is far out
+    first.style.cssText = 'width: 100%; font-size: 1px; overflow: visible';
+    const room = first.clientWidth * 0.97; // a little less, for the rounding of the screen
+    first.style.cssText = '';
+    if (!wasFar) this.stage.classList.remove('far');
+
+    const ctx = (this._measure ||= document.createElement('canvas').getContext('2d'));
+    ctx.font = `700 100px ${getComputedStyle(first).fontFamily || 'sans-serif'}`;
+    if (room > 20) {
+      for (const n of names) {
+        const w = ctx.measureText(n.textContent).width;
+        if (w) n.style.setProperty('--fit', `${Math.max(1, Math.floor((room / w) * 100))}px`);
+      }
+    }
+    this._fitted = true;
+    // the font of the page may arrive after the tree is drawn: the widths are measured again then
+    if (!this._fontsWatched) {
+      this._fontsWatched = true;
+      document.fonts?.ready.then(() => { this._fitted = false; if (this.k < FAR_K) this.#fitNames(); });
+    }
   }
 
   /** The trunk under the root, and two roots spreading from its foot. */
@@ -414,7 +449,9 @@ export class Chart {
     this._k = this.k;
     this.stage.style.transform = `translate(${this.tx}px, ${this.ty}px) scale(${this.k})`;
     this.stage.style.setProperty('--k', this.k.toFixed(3));
-    this.stage.classList.toggle('far', this.k < FAR_K); // css: far out, a card shows only a big first name
+    const far = this.k < FAR_K;
+    this.stage.classList.toggle('far', far); // css: far out, a card shows only a big first name
+    if (far && !this._fitted) this.#fitNames();
     this.#placeLabels();
     clearTimeout(this._still);
     // A layer that the browser keeps ready for moving is drawn once, at the size it had, and a zoom only stretches that
