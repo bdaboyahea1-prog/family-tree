@@ -450,7 +450,7 @@ export class Chart {
     this.stage.style.transform = `translate(${this.tx}px, ${this.ty}px) scale(${this.k})`;
     this.stage.style.setProperty('--k', this.k.toFixed(3));
     const far = this.k < FAR_K;
-    this.stage.classList.toggle('far', far); // css: far out, a card shows only a big first name
+    this.stage.classList.toggle('far', far); // css: far out, the name of a card becomes a big first name (the rest of the card stays)
     if (far && !this._fitted) this.#fitNames();
     this.#placeLabels();
     clearTimeout(this._still);

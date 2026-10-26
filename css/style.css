@@ -1056,9 +1056,9 @@ html.js .boot-loading { display: grid; min-height: 100vh; }
 [data-card="header"] .card .state, [data-card="medal"] .card .state, [data-card="id"] .card .state, [data-card="pill"] .card .state { top: -7px; left: -7px; }
 .stage.no-age .card .age-tag, .stage.no-age .card .state { display: none; }
 
-/* the tree far away (a phone, a tablet, a computer: any screen): a card shows only a big first name, the details are left out */
+/* the tree far away (a phone, a tablet, a computer: any screen): only the name changes, to the first name written bigger; the buttons, the years, the age, the state mark and the rest stay as they are */
 .stage .card .nm-far { display: none; font-weight: 700; text-align: center; line-height: 1.15; }
-.stage.far .card .nm, .stage.far .card .nick, .stage.far .card .acts, .stage.far .wives, .stage.far .card .age-tag, .stage.far .card .state { display: none; }
+.stage.far .card .nm { display: none; }
 /* the first name: about 13px ON THE SCREEN whatever the zoom (so 13 / zoom inside the tree), but never more than a quarter of the card width and never wider than its room (--fit, measured in chart.js): the whole name shows and shrinks with the zoom; one line */
 .stage.far .card .nm-far {
   display: block; font-size: min(calc(13px / var(--k, 1)), calc(var(--cw, 172px) * 0.26), var(--fit, 100px)); line-height: 1.2;
