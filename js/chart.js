@@ -5,7 +5,7 @@ import { genderIcon, graveIcon } from './gender.js';
 const SVGNS = 'http://www.w3.org/2000/svg';
 const MIN_K = 0.08; // the smallest zoom: a big family can be seen whole, as a map, on a phone
 const FIT_MIN_K = MIN_K; // the first view shows the whole tree whenever "عرض الكل" could (it cannot go below the smallest zoom)
-const FAR_K = 0.6; // below this zoom (60%) the tree is "far": a card shows only a big first name (the choice of the family)
+const FAR_K = 0.5; // below this zoom (50%) the tree is "far": the name of a card becomes a big first name (the choice of the family)
 const MAX_K = 2.5;
 
 const wifeColor = (i) => SPOUSE_COLORS[i % SPOUSE_COLORS.length];
