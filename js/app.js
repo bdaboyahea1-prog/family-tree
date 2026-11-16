@@ -9,6 +9,7 @@ import {
 } from './tree.js';
 import { PhotoStore, compressImage } from './photos.js';
 import { provincesOf, citiesOf } from './places-data.js';
+import { searchableSelect } from './searchselect.js';
 import { ABOUT_TITLE, cleanAbout, aboutParagraphs } from './about.js';
 import { toJson, fromJson, toGedcom, fromGedcom, planImport, chunk, validPhone, validEmail } from './transfer.js';
 import { Chart, makeCard } from './chart.js';
@@ -477,10 +478,11 @@ const OTHER = '__other__';
 function chooser(label) {
   const seq = ++fieldSeq;
   const sel = h('select', { 'aria-label': label });
+  sel.id = `ch${seq}`;
+  const pick = searchableSelect(sel, { pinned: [OTHER] }); // a list with a search box; the id of the select moves to its button
   const txt = h('input', { type: 'text', maxlength: 100, autocomplete: 'off', list: `sg${seq}`, 'aria-label': label });
   const dl = h('datalist', { id: `sg${seq}` });
-  const node = h('div', { class: 'field' }, h('label', { for: `ch${seq}`, text: label }), sel, txt, dl);
-  sel.id = `ch${seq}`;
+  const node = h('div', { class: 'field' }, h('label', { for: `ch${seq}`, text: label }), pick, txt, dl);
   const api = { node, onChange: () => {} };
 
   /**
@@ -552,9 +554,11 @@ function placePicker(kind, init = {}) {
     countryList().map((c) => h('option', { value: c.code, text: c.name })),
   );
   country.value = init.country || '';
+  country.id = `ch${++fieldSeq}`;
   const province = chooser('المحافظة / المنطقة');
   const city = chooser('المدينة');
-  const countryField = h('div', { class: 'field' }, h('label', { text: 'البلد' }), country);
+  const countryField = h('div', { class: 'field' }, h('label', { for: country.id, text: 'البلد' }), country);
+  searchableSelect(country); // the list of countries is long: it gets a search box
 
   const seen = () => placeStats(state.index, kind).find((c) => c.code === (country.value || ''));
 
@@ -1278,6 +1282,8 @@ function showJoinPage(teaser, defaults = {}) {
   const hp = h('input', { type: 'text', tabindex: '-1', autocomplete: 'off', name: 'website' }); // robots fill this, people never see it
   const send = h('button', { class: 'btn primary block', type: 'submit', text: 'إرسال الطلب' });
   const progress = h('div', { class: 'muted', role: 'status' });
+  const countryField = field('بلد الإقامة', country);
+  searchableSelect(country); // the list of countries is long: it gets a search box
 
   const form = h(
     'form',
@@ -1285,7 +1291,7 @@ function showJoinPage(teaser, defaults = {}) {
     h('p', { class: 'muted', text: `إن كنت من عائلة ${FAMILY} فاملأ الاستمارة التالية. لا حاجة إلى حساب: يصل طلبك إلى مدير الشجرة ليوافق عليه أو يرفضه، وبعد الموافقة تنشئ حسابك.` }),
     field('الاسم الكامل', name),
     field('صلتك بالعائلة', relation),
-    h('div', { class: 'row' }, field('بلد الإقامة', country), field('المدينة (اختياري)', city)),
+    h('div', { class: 'row' }, countryField, field('المدينة (اختياري)', city)),
     h('div', { class: 'row' }, field('رقم الهاتف (اختياري)', phone), field('البريد الإلكتروني (اختياري)', email)),
     h('small', { class: 'muted', text: 'الهاتف والبريد اختياريان. بالهاتف (مع رمز الدولة مثل +963…) يراسلك المدير على واتساب، وبالبريد تُنشأ لك دعوة حسابك. وإن لم تكتب أيًّا منهما فتتابع طلبك برقم المتابعة الذي يظهر لك بعد الإرسال، فاحتفظ به.' }),
     field('إثبات أنك من العائلة (هوية أو ورقة رسمية) — اختياري', file),

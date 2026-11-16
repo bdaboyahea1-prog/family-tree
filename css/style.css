@@ -509,6 +509,27 @@ dialog.modal::backdrop { background: rgba(10, 16, 13, 0.55); }
 .place-picker { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-bottom: 4px; }
 .place-picker .field { margin: 0; }
 .place-picker input:disabled { opacity: 0.6; }
+/* a long list with a search box (country, province, city): a button shows the choice and opens a panel with the box and the list (js/searchselect.js) */
+.ss { display: grid; gap: 6px; min-width: 0; }
+.ss > select { display: none !important; }
+.ss-btn {
+  width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: start; cursor: pointer;
+}
+.ss-btn::after {
+  content: ''; flex: none; width: 7px; height: 7px; margin-top: -3px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); /* physical sides: the arrow points down in right-to-left too */
+  transform: rotate(45deg); transition: transform 0.15s;
+}
+.ss-btn[aria-expanded='true']::after { margin-top: 3px; transform: rotate(225deg); }
+.ss-val { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ss-btn.ss-empty .ss-val { color: var(--muted); }
+.ss-panel { display: grid; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.ss-list { position: relative; list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto; overscroll-behavior: contain; }
+.ss-opt { padding: 9px 10px; border-radius: 8px; cursor: pointer; }
+.ss-opt:hover, .ss-opt.on { background: var(--accent-soft); }
+.ss-opt[aria-selected='true'] { font-weight: 700; color: var(--accent); }
+.ss-none { padding: 9px 10px; color: var(--muted); }
+.place-picker .field:has(.ss-panel:not([hidden])) { grid-column: 1 / -1; } /* an open list takes the whole row, so the names have room */
 .seg[role='tablist'] { display: flex; margin-bottom: 10px; }
 .seg[role='tablist'] button { flex: 1; }
 .seg b { color: var(--accent); }
